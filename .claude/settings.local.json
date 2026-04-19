@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vite:*)",
+      "WebFetch(domain:skillsmp.com)",
+      "WebSearch",
+      "Bash(npm install:*)",
+      "Bash(npm test:*)",
+      "Bash(ls /c/Users/maran/Downloads/tweet-command-center/vitest.config*)",
+      "Bash(npx vitest:*)"
+    ]
+  }
+}
