@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3001/api/messages';
+const API_URL = '/api/messages';
 
 export async function callClaude(userPrompt, { maxTokens = 8000, model = 'claude-sonnet-4-6' } = {}) {
   const response = await fetch(API_URL, {
