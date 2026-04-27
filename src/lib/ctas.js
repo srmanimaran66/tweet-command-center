@@ -39,32 +39,33 @@ const POOLS = {
   ],
 };
 
-// Tracks used CTA TEXT globally across all types — prevents same string appearing twice in one week
-let usedTexts = new Set();
-// Tracks used indices per pool — prevents exhausting one pool type
-const usedIndices = {
-  primary_educational: new Set(),
-  secondary_educational: new Set(),
-  engagement: new Set(),
-};
-
-export function resetCtaTracking() {
-  usedTexts = new Set();
-  for (const key of Object.keys(usedIndices)) {
-    usedIndices[key] = new Set();
-  }
+function makeTracking() {
+  return {
+    usedTexts: new Set(),
+    usedIndices: {
+      primary_educational: new Set(),
+      secondary_educational: new Set(),
+      engagement: new Set(),
+    },
+  };
 }
 
-export function pickCta(tweetType) {
+// Module-level state kept only for backward-compat with direct pickCta() calls in tests.
+let _moduleTracking = makeTracking();
+
+export function resetCtaTracking() {
+  _moduleTracking = makeTracking();
+}
+
+function pickCtaWithTracking(tweetType, tracking) {
+  const { usedTexts, usedIndices } = tracking;
   const pool = POOLS[tweetType] || POOLS.primary_educational;
   const used = usedIndices[tweetType] || new Set();
 
-  // Find indices not yet used for this type AND whose text hasn't been used globally
   let available = pool
     .map((text, i) => ({ text, i }))
     .filter(({ text, i }) => !used.has(i) && !usedTexts.has(text));
 
-  // If all exhausted locally, reset local tracking but still respect global dedup
   if (available.length === 0) {
     used.clear();
     available = pool
@@ -72,7 +73,6 @@ export function pickCta(tweetType) {
       .filter(({ text }) => !usedTexts.has(text));
   }
 
-  // If global dedup exhausted everything (very long week), reset global too
   if (available.length === 0) {
     usedTexts.clear();
     available = pool.map((text, i) => ({ text, i }));
@@ -80,8 +80,12 @@ export function pickCta(tweetType) {
 
   const pick = available[Math.floor(Math.random() * available.length)];
   used.add(pick.i);
-  if (pick.text) usedTexts.add(pick.text); // don't track empty-string CTA
+  if (pick.text) usedTexts.add(pick.text);
   return pick.text;
+}
+
+export function pickCta(tweetType) {
+  return pickCtaWithTracking(tweetType, _moduleTracking);
 }
 
 // Patterns that indicate the LLM hallucinated a CTA (tested against the raw line text)
@@ -136,7 +140,7 @@ function cleanListItems(text) {
 }
 
 export function applyCtasToTweets(tweets) {
-  resetCtaTracking();
+  const tracking = makeTracking();
   return tweets.map(tweet => {
     // Strip AI-hallucinated CTAs, remove blank list markers
     const stripped = stripTrailingCta(tweet.fullText || '');
@@ -151,7 +155,7 @@ export function applyCtasToTweets(tweets) {
     }
 
     // Store CTA as card metadata only — fullText stays clean and postable as-is
-    const cta = pickCta(tweet.tweetType);
+    const cta = pickCtaWithTracking(tweet.tweetType, tracking);
     return { ...tweet, ctaText: cta, fullText: cleanBody, defective: false };
   });
 }

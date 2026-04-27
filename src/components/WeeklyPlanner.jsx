@@ -57,7 +57,7 @@ function GenerationToast({ isGenerating }) {
 import TweetCard from './TweetCard.jsx';
 import { getDayLabel, formatScheduledDate } from '../lib/scheduler.js';
 
-export default function WeeklyPlanner({ tweets, profile, isGenerating, onEdit, onRegenerate, onApprove, onApproveAll, onGoToSchedule, onRestart, onUpdateTime }) {
+export default function WeeklyPlanner({ tweets, profile, isGenerating, regenError, onDismissRegenError, onEdit, onRegenerate, onApprove, onApproveAll, onGoToSchedule, onRestart, onUpdateTime }) {
   const [filter, setFilter] = useState('all'); // all | draft | approved
   const [copied, setCopied] = useState(false);
 
@@ -95,6 +95,14 @@ export default function WeeklyPlanner({ tweets, profile, isGenerating, onEdit, o
   return (
     <div className="min-h-screen bg-[#0a0a12]">
       <GenerationToast isGenerating={isGenerating} />
+
+      {/* Regen error toast */}
+      {regenError && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-red-950/90 border border-red-500/40 text-red-300 text-sm rounded-2xl px-5 py-3 shadow-2xl">
+          <span>{regenError}</span>
+          <button onClick={onDismissRegenError} className="text-red-400 hover:text-red-200 text-xs underline">Dismiss</button>
+        </div>
+      )}
 
       {/* Header */}
       <div className="border-b border-white/[0.06] bg-[#0d0d18] sticky top-0 z-10">

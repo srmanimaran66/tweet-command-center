@@ -13,35 +13,46 @@ import { AlertCircle, RefreshCw } from 'lucide-react';
 
 const STORAGE_KEY = 'tweetfull_profile';
 const PREV_WEEK_KEY = 'tweetfull_previous_week';
+const PROFILE_VERSION = 1;
+const PREV_WEEK_VERSION = 1;
+const PREV_WEEK_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 
 function loadProfile() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+    const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+    if (!data || data._version !== PROFILE_VERSION) return null;
+    return data;
   } catch {
     return null;
   }
 }
 
 function saveProfile(profile) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...profile, _version: PROFILE_VERSION }));
 }
 
 function loadPreviousWeek() {
   try {
-    return JSON.parse(localStorage.getItem(PREV_WEEK_KEY) || '[]');
+    const data = JSON.parse(localStorage.getItem(PREV_WEEK_KEY) || 'null');
+    if (!data || data._version !== PREV_WEEK_VERSION) return [];
+    if (Date.now() - data._savedAt > PREV_WEEK_TTL_MS) return [];
+    return data.tweets || [];
   } catch {
     return [];
   }
 }
 
 function savePreviousWeek(tweets) {
-  // Store only the fields the prompt needs — keep it lean
   const slim = tweets.map(t => ({
     dayNumber: t.dayNumber,
     tweetOrder: t.tweetOrder,
     fullText: t.fullText,
   }));
-  localStorage.setItem(PREV_WEEK_KEY, JSON.stringify(slim));
+  localStorage.setItem(PREV_WEEK_KEY, JSON.stringify({
+    _version: PREV_WEEK_VERSION,
+    _savedAt: Date.now(),
+    tweets: slim,
+  }));
 }
 
 let nextId = 1;
@@ -109,6 +120,7 @@ export default function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState(null);
   const [lastProfile, setLastProfile] = useState(null);
+  const [regenError, setRegenError] = useState(null);
 
   // ─── Generation pipeline ──────────────────────────────────────────────
   const generateWeek = useCallback(async (p) => {
@@ -285,7 +297,8 @@ export default function App() {
       }
     } catch (err) {
       console.error('Regenerate error:', err);
-      alert('Failed to regenerate: ' + err.message);
+      setRegenError('Failed to regenerate tweet. Please try again.');
+      setTimeout(() => setRegenError(null), 5000);
     }
   }, [profile, editingTweet]);
 
@@ -340,6 +353,8 @@ export default function App() {
           tweets={tweets}
           profile={profile}
           isGenerating={isGenerating}
+          regenError={regenError}
+          onDismissRegenError={() => setRegenError(null)}
           onEdit={setEditingTweet}
           onRegenerate={(tweet) => handleRegenerate(tweet)}
           onApprove={handleApprove}
