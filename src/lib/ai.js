@@ -1,11 +1,14 @@
 const API_URL = '/api/messages';
+const APP_TOKEN = import.meta.env.VITE_API_TOKEN || '';
 
-export async function callClaude(userPrompt, { maxTokens = 8000, model = 'claude-sonnet-4-6' } = {}) {
+export async function callClaude(userPrompt, { maxTokens = 8000 } = {}) {
   const response = await fetch(API_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-app-token': APP_TOKEN,
+    },
     body: JSON.stringify({
-      model,
       max_tokens: maxTokens,
       messages: [{ role: 'user', content: userPrompt }],
     }),
