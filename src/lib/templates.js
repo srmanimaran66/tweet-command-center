@@ -91,6 +91,17 @@ export const TEMPLATES = [
 
   // ─── Engagement Templates ─────────────────────────────────────────────
   {
+    id: 'contrarian_tech',
+    name: 'Contrarian Tech',
+    category: 'engagement',
+    description: 'Push back against a prevailing tool or automation trend',
+    hook_pattern: '[Popular tool/practice] is [unexpected downside].',
+    body_pattern: '[What everyone assumes]\n\nThe hidden cost:\n[specific consequence]\n\n[what to do instead]',
+    cta_pattern: 'Agree or disagree? Tell me.',
+    best_for: ['engagement', 'authority'],
+    tone_modifiers: ['contrarian', 'bold'],
+  },
+  {
     id: 'hot_take',
     name: 'Hot Take',
     category: 'engagement',

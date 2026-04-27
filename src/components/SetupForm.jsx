@@ -328,7 +328,7 @@ export default function SetupForm({ onGenerate, initialProfile }) {
         </form>
 
         <p className="text-center text-slate-600 text-xs mt-4">
-          Generates 21 tweets • 7 days • 3 per day
+          Generates 15 tweets • 5 days • 3 per day
         </p>
       </div>
     </div>
