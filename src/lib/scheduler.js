@@ -62,7 +62,7 @@ export function formatScheduledDate(isoString) {
 export function getNextMonday() {
   const now = new Date();
   const day = now.getDay(); // 0=Sun, 1=Mon
-  const daysUntilMonday = day === 1 ? 7 : (8 - day) % 7 || 7;
+  const daysUntilMonday = day === 1 ? 0 : (8 - day) % 7 || 7;
   const monday = new Date(now);
   monday.setDate(now.getDate() + daysUntilMonday);
   monday.setHours(0, 0, 0, 0);

@@ -315,15 +315,6 @@ export default function App() {
     }));
   }
 
-  function handleScheduleAll(approvedTweets) {
-    // In production: POST /api/schedule/push with contentPlanId
-    console.log('Scheduling tweets:', approvedTweets.map(t => ({
-      id: t.id,
-      scheduledAt: t.scheduledAt,
-      text: t.fullText?.substring(0, 50),
-    })));
-  }
-
   // ─── Render ───────────────────────────────────────────────────────────
   if (view === 'error') {
     return (
@@ -369,7 +360,6 @@ export default function App() {
         tweets={tweets}
         profile={profile}
         onBack={() => setView('planner')}
-        onScheduleAll={handleScheduleAll}
       />
     );
   }

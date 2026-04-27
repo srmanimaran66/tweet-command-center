@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle, Clock, Calendar, Send, ArrowLeft, AlertCircle, Copy, Check, ExternalLink } from 'lucide-react';
+import { Clock, Calendar, Send, ArrowLeft, AlertCircle, Copy, Check, ExternalLink } from 'lucide-react';
 
 function openTweetIntent(text) {
   const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
@@ -19,8 +19,8 @@ const TYPE_LABELS = {
   engagement: 'Engagement',
 };
 
-export default function ScheduleReview({ tweets, profile, onBack, onScheduleAll }) {
-  const [scheduled, setScheduled] = useState(false);
+export default function ScheduleReview({ tweets, profile, onBack }) {
+  const [exportCopied, setExportCopied] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
 
   const approved = tweets.filter(t => t.status === 'approved');
@@ -39,43 +39,22 @@ export default function ScheduleReview({ tweets, profile, onBack, onScheduleAll 
     setTimeout(() => setCopiedId(null), 2000);
   }
 
-  function handleScheduleAll() {
-    setScheduled(true);
-    onScheduleAll(approved);
-  }
-
-  if (scheduled) {
-    return (
-      <div className="min-h-screen bg-[#0a0a12] flex items-center justify-center p-4">
-        <div className="text-center max-w-md">
-          <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle size={32} className="text-emerald-400" />
-          </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Week Scheduled!</h2>
-          <p className="text-slate-400 mb-2">
-            {approved.length} tweets have been queued in Tweetfull.
-          </p>
-          <p className="text-slate-500 text-sm mb-8">
-            Your content is ready to go. Check Tweetfull to see the full schedule.
-          </p>
-          <div className="bg-[#13131f] border border-white/[0.06] rounded-2xl p-4 text-left mb-6">
-            <h3 className="text-white text-sm font-semibold mb-3">Week summary</h3>
-            <div className="grid grid-cols-3 gap-4">
-              <SumStat label="Total tweets" value={approved.length} />
-              <SumStat label="Days covered" value={Object.keys(byDay).length} />
-              <SumStat label="Avg score" value={Math.round(approved.reduce((s, t) => s + (t.score || 70), 0) / approved.length)} />
-            </div>
-          </div>
-          <button
-            onClick={onBack}
-            className="text-sm text-violet-400 hover:text-violet-300 flex items-center gap-2 mx-auto transition-colors"
-          >
-            <ArrowLeft size={15} />
-            Back to planner
-          </button>
-        </div>
-      </div>
-    );
+  async function handleExportAll() {
+    const lines = [];
+    Object.keys(byDay)
+      .sort((a, b) => Number(a) - Number(b))
+      .forEach(dayNum => {
+        const dayTweets = byDay[dayNum].slice().sort((a, b) => a.tweetOrder - b.tweetOrder);
+        lines.push(`=== ${getDayLabel(Number(dayNum))} ===`);
+        dayTweets.forEach(t => {
+          lines.push(`[${t.displayTime}]`);
+          lines.push(t.fullText);
+          lines.push('');
+        });
+      });
+    await navigator.clipboard.writeText(lines.join('\n'));
+    setExportCopied(true);
+    setTimeout(() => setExportCopied(false), 2500);
   }
 
   return (
@@ -96,12 +75,12 @@ export default function ScheduleReview({ tweets, profile, onBack, onScheduleAll 
             </p>
           </div>
           <button
-            onClick={handleScheduleAll}
+            onClick={handleExportAll}
             disabled={approved.length === 0}
             className="flex items-center gap-2 text-sm font-semibold bg-violet-600 hover:bg-violet-500 text-white rounded-xl px-4 py-2.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <Send size={15} />
-            Schedule {approved.length} tweets
+            {exportCopied ? <Check size={15} /> : <Send size={15} />}
+            {exportCopied ? 'Copied to clipboard!' : `Export ${approved.length} tweets`}
           </button>
         </div>
       </div>
