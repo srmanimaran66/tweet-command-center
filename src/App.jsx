@@ -171,9 +171,10 @@ export default function App() {
           // Quality improvements and spike upgrades are fine to trim normally.
           const rawText = cleanTweetArtifacts(updated.fullText);
           const fullText = tweet.defective ? rawText : enforceCharLimit(rawText);
-          return { ...tweet, hookText: updated.hookText || tweet.hookText, bodyText: updated.bodyText || tweet.bodyText, fullText, defective: hasTweetDefect(fullText, tweet.templateName) };
-        } catch {
-          return tweet;
+          return { ...tweet, hookText: updated.hookText || tweet.hookText, bodyText: updated.bodyText || tweet.bodyText, fullText, defective: hasTweetDefect(fullText, tweet.templateName), improveFailed: false };
+        } catch (err) {
+          console.warn(`[improve pass 1] Day ${tweet.dayNumber} slot ${tweet.tweetOrder} failed:`, err.message);
+          return { ...tweet, improveFailed: true };
         }
       }));
 
@@ -191,9 +192,12 @@ export default function App() {
             if (updated.fullText) {
               const fullText = cleanTweetArtifacts(updated.fullText);
               const { score } = scoreTweet({ ...current, fullText }, p);
-              current = { ...current, fullText, hookText: updated.hookText || current.hookText, bodyText: updated.bodyText || current.bodyText, score, defective: hasTweetDefect(fullText, current.templateName) };
+              current = { ...current, fullText, hookText: updated.hookText || current.hookText, bodyText: updated.bodyText || current.bodyText, score, defective: hasTweetDefect(fullText, current.templateName), improveFailed: false };
             }
-          } catch {}
+          } catch (err) {
+            console.warn(`[improve pass 2 completion] Day ${current.dayNumber} slot ${current.tweetOrder} failed:`, err.message);
+            current = { ...current, improveFailed: true };
+          }
         }
 
         if (!current.defective && current.score < 65) {
@@ -202,9 +206,12 @@ export default function App() {
             const updated = parseJSON(raw);
             if (updated.fullText) {
               const fullText = enforceCharLimit(cleanTweetArtifacts(updated.fullText));
-              current = { ...current, fullText, hookText: updated.hookText || current.hookText, bodyText: updated.bodyText || current.bodyText, defective: hasTweetDefect(fullText, current.templateName) };
+              current = { ...current, fullText, hookText: updated.hookText || current.hookText, bodyText: updated.bodyText || current.bodyText, defective: hasTweetDefect(fullText, current.templateName), improveFailed: false };
             }
-          } catch {}
+          } catch (err) {
+            console.warn(`[improve pass 2 quality] Day ${current.dayNumber} slot ${current.tweetOrder} failed:`, err.message);
+            current = { ...current, improveFailed: true };
+          }
         }
 
         return current;

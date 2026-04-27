@@ -134,6 +134,14 @@ export default function TweetCard({ tweet, onEdit, onRegenerate, onApprove, onUp
         </div>
       )}
 
+      {/* Improve-failed banner */}
+      {!isDefective && tweet.improveFailed && (
+        <div className="flex items-center gap-1.5 text-xs text-slate-400 bg-white/[0.04] border border-white/[0.08] rounded-lg px-2.5 py-1.5">
+          <span>↻</span>
+          <span>Auto-improvement skipped — Redo to retry</span>
+        </div>
+      )}
+
       {/* Top row: type badge + [approved icon] + time */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
