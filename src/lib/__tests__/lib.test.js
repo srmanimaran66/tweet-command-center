@@ -382,13 +382,12 @@ describe('hasTweetDefect — lessons_learned, checklist stub, simple_process stu
 describe('getNextMonday — Monday scheduling gap', () => {
   afterEach(() => vi.useRealTimers());
 
-  test('called on a Monday returns next Monday (7 days away, skipping current week)', () => {
+  test('called on a Monday returns today (0 days away — schedules current week)', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-04-20T09:00:00')); // Monday
     const result = getNextMonday();
     const diff = (new Date(result) - new Date('2026-04-20')) / (1000 * 60 * 60 * 24);
-    // Returns +7 days: user on Monday morning loses this entire week
-    expect(diff).toBe(7);
+    expect(diff).toBe(0);
   });
 
   test('called on a Tuesday returns the coming Monday (6 days away)', () => {

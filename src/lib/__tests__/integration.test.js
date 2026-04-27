@@ -8,8 +8,6 @@
 import { describe, test, expect, beforeAll } from 'vitest';
 import { hasTweetDefect, parseJSON } from '../ai.js';
 import { buildSelfImprovementPrompt } from '../prompts.js';
-import * as fs from 'fs';
-import * as path from 'path';
 
 const HAS_KEY = !!process.env.ANTHROPIC_API_KEY;
 
@@ -128,31 +126,13 @@ function routeImprovement(tweet) {
   return null;
 }
 
-function readThresholdCode() {
-  const appPath = path.resolve('src/App.jsx');
-  const source = fs.readFileSync(appPath, 'utf8');
-  const lines = source.split('\n');
-  // Find the improvement block — look for the defective / score < line group
-  const start = lines.findIndex(l => l.includes('Auto-improve'));
-  if (start === -1) return '(could not locate improvement block in App.jsx)';
-  return lines.slice(start, start + 15).join('\n');
-}
-
 describe('score threshold — routing', () => {
   test('tweet with score 60 routes to self-improve', () => {
-    const result = routeImprovement({ defective: false, score: 60 });
-    if (result !== 'self-improve') {
-      console.log('\n══ THRESHOLD CHECK IN App.jsx ══\n' + readThresholdCode());
-    }
-    expect(result).toBe('self-improve');
+    expect(routeImprovement({ defective: false, score: 60 })).toBe('self-improve');
   });
 
   test('tweet with score 64 routes to self-improve', () => {
-    const result = routeImprovement({ defective: false, score: 64 });
-    if (result !== 'self-improve') {
-      console.log('\n══ THRESHOLD CHECK IN App.jsx ══\n' + readThresholdCode());
-    }
-    expect(result).toBe('self-improve');
+    expect(routeImprovement({ defective: false, score: 64 })).toBe('self-improve');
   });
 
   test('tweet with score 65 is NOT improved (threshold is < 65, not <= 65)', () => {
