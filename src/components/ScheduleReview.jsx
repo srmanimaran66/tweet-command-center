@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { Clock, Calendar, Send, ArrowLeft, AlertCircle, Copy, Check, ExternalLink } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Clock, Calendar, Send, ArrowLeft, AlertCircle, Copy, Check, ExternalLink, Zap, Link2 } from 'lucide-react';
+import { getDayLabel, formatScheduledDate } from '../lib/scheduler.js';
 
 function openTweetIntent(text) {
   const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
   window.open(url, '_blank', 'noopener,noreferrer');
 }
-import { getDayLabel, formatScheduledDate } from '../lib/scheduler.js';
 
 const TYPE_COLORS = {
   primary_educational: '#3b82f6',
@@ -23,15 +23,38 @@ export default function ScheduleReview({ tweets, profile, onBack }) {
   const [exportCopied, setExportCopied] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
 
+  // X connection state
+  const [xConnected, setXConnected] = useState(null); // null = loading
+  const [xScheduling, setXScheduling] = useState(false);
+  const [xScheduled, setXScheduled] = useState(false);
+  const [xError, setXError] = useState(null);
+  const [queueStatus, setQueueStatus] = useState(null); // { queued, posted, pending }
+
   const approved = tweets.filter(t => t.status === 'approved');
   const unapproved = tweets.filter(t => t.status !== 'approved');
 
-  // Group approved tweets by day
   const byDay = {};
   approved.forEach(t => {
     if (!byDay[t.dayNumber]) byDay[t.dayNumber] = [];
     byDay[t.dayNumber].push(t);
   });
+
+  useEffect(() => {
+    fetch('/api/auth/x/status')
+      .then(r => r.json())
+      .then(d => {
+        setXConnected(d.connected);
+        if (d.connected) fetchQueueStatus();
+      })
+      .catch(() => setXConnected(false));
+  }, []);
+
+  function fetchQueueStatus() {
+    fetch('/api/schedule/status')
+      .then(r => r.json())
+      .then(d => setQueueStatus(d))
+      .catch(() => {});
+  }
 
   async function handleCopy(tweet) {
     await navigator.clipboard.writeText(tweet.fullText);
@@ -57,6 +80,33 @@ export default function ScheduleReview({ tweets, profile, onBack }) {
     setTimeout(() => setExportCopied(false), 2500);
   }
 
+  async function handleScheduleToX() {
+    setXScheduling(true);
+    setXError(null);
+    try {
+      const res = await fetch('/api/schedule/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tweets: approved }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Scheduling failed');
+      setXScheduled(true);
+      fetchQueueStatus();
+    } catch (err) {
+      setXError(err.message);
+    } finally {
+      setXScheduling(false);
+    }
+  }
+
+  async function handleDisconnect() {
+    await fetch('/api/auth/x/disconnect', { method: 'POST' });
+    setXConnected(false);
+    setXScheduled(false);
+    setQueueStatus(null);
+  }
+
   return (
     <div className="min-h-screen bg-[#0a0a12]">
       {/* Header */}
@@ -74,18 +124,96 @@ export default function ScheduleReview({ tweets, profile, onBack }) {
               {approved.length} approved · {unapproved.length} pending review
             </p>
           </div>
-          <button
-            onClick={handleExportAll}
-            disabled={approved.length === 0}
-            className="flex items-center gap-2 text-sm font-semibold bg-violet-600 hover:bg-violet-500 text-white rounded-xl px-4 py-2.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {exportCopied ? <Check size={15} /> : <Send size={15} />}
-            {exportCopied ? 'Copied to clipboard!' : `Export ${approved.length} tweets`}
-          </button>
+
+          <div className="flex items-center gap-2">
+            {/* Export to clipboard — always available */}
+            <button
+              onClick={handleExportAll}
+              disabled={approved.length === 0}
+              className="flex items-center gap-2 text-sm text-slate-400 hover:text-white border border-white/[0.08] hover:border-white/[0.16] rounded-xl px-3 py-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {exportCopied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+              {exportCopied ? 'Copied!' : 'Export'}
+            </button>
+
+            {/* Schedule to X — when connected */}
+            {xConnected && (
+              <button
+                onClick={handleScheduleToX}
+                disabled={approved.length === 0 || xScheduling || xScheduled}
+                className="flex items-center gap-2 text-sm font-semibold bg-violet-600 hover:bg-violet-500 text-white rounded-xl px-4 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {xScheduled
+                  ? <><Check size={14} /> Scheduled!</>
+                  : xScheduling
+                  ? <><div className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Queuing…</>
+                  : <><Zap size={14} /> Schedule to X</>
+                }
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+      <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+
+        {/* X connection banner */}
+        {xConnected === false && (
+          <div className="bg-[#13131f] border border-white/[0.08] rounded-xl p-4 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-white text-sm font-medium">Auto-schedule to X</p>
+              <p className="text-slate-500 text-xs mt-0.5">
+                Connect your X account to post tweets automatically at their scheduled times.
+              </p>
+            </div>
+            <a
+              href="/api/auth/x/connect"
+              className="flex items-center gap-2 text-sm font-semibold bg-sky-600 hover:bg-sky-500 text-white rounded-xl px-4 py-2 transition-colors whitespace-nowrap flex-shrink-0"
+            >
+              <Link2 size={14} />
+              Connect X
+            </a>
+          </div>
+        )}
+
+        {xConnected && (
+          <div className="flex items-center justify-between bg-emerald-950/30 border border-emerald-500/25 rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2 text-sm text-emerald-400">
+              <div className="w-2 h-2 rounded-full bg-emerald-400" />
+              Connected to X
+              {queueStatus && queueStatus.queued > 0 && (
+                <span className="text-slate-500 text-xs ml-1">
+                  · {queueStatus.posted}/{queueStatus.queued} tweets posted
+                </span>
+              )}
+            </div>
+            <button
+              onClick={handleDisconnect}
+              className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              Disconnect
+            </button>
+          </div>
+        )}
+
+        {/* Scheduled confirmation */}
+        {xScheduled && (
+          <div className="bg-violet-950/30 border border-violet-500/25 rounded-xl px-4 py-3 flex items-center gap-3">
+            <Check size={15} className="text-violet-400 flex-shrink-0" />
+            <p className="text-violet-300 text-sm">
+              {approved.length} tweets queued — they'll post automatically at their scheduled times.
+            </p>
+          </div>
+        )}
+
+        {/* X error */}
+        {xError && (
+          <div className="bg-red-950/30 border border-red-500/25 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+            <p className="text-red-300 text-sm">{xError}</p>
+            <button onClick={() => setXError(null)} className="text-xs text-red-400 hover:text-red-200">Dismiss</button>
+          </div>
+        )}
+
         {/* Warning for unapproved */}
         {unapproved.length > 0 && (
           <div className="bg-amber-950/30 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3">
@@ -132,6 +260,7 @@ export default function ScheduleReview({ tweets, profile, onBack }) {
                       tweet={tweet}
                       copied={copiedId === tweet.id}
                       onCopy={() => handleCopy(tweet)}
+                      queueStatus={queueStatus}
                     />
                   ))}
               </div>
@@ -142,26 +271,29 @@ export default function ScheduleReview({ tweets, profile, onBack }) {
   );
 }
 
-function ScheduleRow({ tweet, copied, onCopy }) {
+function ScheduleRow({ tweet, copied, onCopy, queueStatus }) {
   const color = TYPE_COLORS[tweet.tweetType] || '#7c3aed';
   const label = TYPE_LABELS[tweet.tweetType] || 'Tweet';
+  const queued = queueStatus?.tweets?.find(t => t.id === tweet.id);
 
   return (
     <div className="bg-[#13131f] border border-white/[0.06] rounded-xl p-4 flex gap-3">
-      {/* Type indicator */}
-      <div
-        className="w-1 rounded-full flex-shrink-0"
-        style={{ backgroundColor: color }}
-      />
+      <div className="w-1 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1.5">
-          <span className="text-xs font-medium" style={{ color }}>
-            {label}
-          </span>
+          <span className="text-xs font-medium" style={{ color }}>{label}</span>
           <span className="text-slate-600 text-xs">·</span>
           <Clock size={10} className="text-slate-600" />
           <span className="text-slate-500 text-xs">{tweet.displayTime}</span>
+          {queued?.posted && (
+            <span className="text-emerald-500 text-xs flex items-center gap-1 ml-1">
+              <Check size={10} /> Posted
+            </span>
+          )}
+          {queued && !queued.posted && (
+            <span className="text-violet-400 text-xs ml-1">· Queued</span>
+          )}
         </div>
         <p className="text-slate-200 text-sm leading-relaxed whitespace-pre-line line-clamp-3">
           {tweet.fullText}
@@ -186,15 +318,6 @@ function ScheduleRow({ tweet, copied, onCopy }) {
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
-    </div>
-  );
-}
-
-function SumStat({ label, value }) {
-  return (
-    <div className="text-center">
-      <div className="text-xl font-bold text-white">{value}</div>
-      <div className="text-slate-500 text-xs mt-0.5">{label}</div>
     </div>
   );
 }

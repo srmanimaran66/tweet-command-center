@@ -7,7 +7,11 @@
       "Bash(npm install:*)",
       "Bash(npm test:*)",
       "Bash(ls /c/Users/maran/Downloads/tweet-command-center/vitest.config*)",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "Bash(npm audit *)",
+      "Bash(node -e \"const d=require\\('/dev/stdin'\\); console.log\\('vulnerabilities:', JSON.stringify\\(d.metadata?.vulnerabilities||d.vulnerabilities||'no audit data'\\)\\);\")",
+      "Bash(git *)",
+      "Bash(node -e ' *)"
     ]
   }
 }

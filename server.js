@@ -1,5 +1,12 @@
 import express from 'express';
 import cors from 'cors';
+import connectHandler from './api/auth/x/connect.js';
+import callbackHandler from './api/auth/x/callback.js';
+import statusHandler from './api/auth/x/status.js';
+import disconnectHandler from './api/auth/x/disconnect.js';
+import pushHandler from './api/schedule/push.js';
+import scheduleStatusHandler from './api/schedule/status.js';
+import cronHandler from './api/cron/post-tweets.js';
 
 const app = express();
 
@@ -65,8 +72,21 @@ app.post('/api/messages', (req, res, next) => {
   }
 });
 
+// ─── X OAuth + scheduling routes ─────────────────────────────────────────────
+app.get('/api/auth/x/connect', connectHandler);
+app.get('/api/auth/x/callback', callbackHandler);
+app.get('/api/auth/x/status', statusHandler);
+app.post('/api/auth/x/disconnect', disconnectHandler);
+app.post('/api/schedule/push', pushHandler);
+app.get('/api/schedule/status', scheduleStatusHandler);
+// Manual cron trigger for local testing: GET http://localhost:PORT/api/cron/post-tweets
+app.get('/api/cron/post-tweets', cronHandler);
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`\n✅ Proxy server running on http://localhost:${PORT}`);
   console.log('   Frontend can now make API calls!\n');
+  if (process.env.X_CLIENT_ID) {
+    console.log('   X OAuth enabled — connect at /api/auth/x/connect\n');
+  }
 });
