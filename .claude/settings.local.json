@@ -11,7 +11,8 @@
       "Bash(npm audit *)",
       "Bash(node -e \"const d=require\\('/dev/stdin'\\); console.log\\('vulnerabilities:', JSON.stringify\\(d.metadata?.vulnerabilities||d.vulnerabilities||'no audit data'\\)\\);\")",
       "Bash(git *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(npm uninstall *)"
     ]
   }
 }

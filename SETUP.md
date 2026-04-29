@@ -95,57 +95,73 @@ This step gets you the **Client ID** and **Client Secret** your server uses to e
 
 ---
 
-## Step 2 — Vercel KV: Create the database
+## Step 2 — Upstash Redis: Create the database
 
-The KV store holds OAuth tokens and the tweet queue. Vercel KV is built on Upstash Redis and is free up to 256 MB.
+> **Note:** Vercel removed their native KV store from the dashboard. The replacement is **Upstash Redis** via the Vercel Marketplace — it is the same underlying technology and works identically.
+
+The database holds OAuth tokens and the tweet queue. The Upstash free tier gives you 10,000 commands/day and 256 MB storage, which is more than enough.
 
 ### 2.1 Open the Vercel Storage dashboard
 
 1. Go to [vercel.com](https://vercel.com) and sign in.
 2. Select your **team** (or personal account) from the top-left dropdown.
 3. Click **"Storage"** in the left navigation.
+4. Click **"Create Database"**.
 
 ---
 
-### 2.2 Create a KV store
+### 2.2 Select Upstash → Redis
 
-1. Click **"Create Database"**.
-2. Select **"KV"** from the list of storage types → click **"Continue"**.
-3. Fill in the creation form:
-   - **Name:** `tweet-scheduler-kv` (lowercase, hyphens only)
-   - **Region:** choose the region closest to your users (e.g. `iad1` for US East, `cdg1` for Europe)
-   - **Plan:** Free
-4. Click **"Create"**.
+On the "Create a database" screen you will see a **Marketplace Database Providers** section.
+
+1. Find **Upstash** ("Serverless DB — Redis, Vector, Queue, Search") and click the **`>`** arrow to expand its options.
+2. Select **Redis** → click **"Continue"** (or **"Create"**).
 
 ---
 
-### 2.3 Connect the KV store to your project
+### 2.3 Create the Redis database
 
-1. After creation, Vercel shows a **"Connect to Project"** prompt.
-2. Select your `tweet-command-center` project from the dropdown.
-3. Choose which environments to connect:
+Fill in the creation form:
+
+| Field | Value |
+|-------|-------|
+| **Database name** | `tweet-scheduler` (lowercase, hyphens only) |
+| **Region** | Closest to your users — e.g. `us-east-1` for US, `eu-west-1` for Europe |
+| **Plan** | Free |
+| **TLS** | Enabled (leave default) |
+
+Click **"Create"**.
+
+---
+
+### 2.4 Connect the database to your project
+
+After creation, Upstash/Vercel shows a **"Connect to Project"** step.
+
+1. Select your `tweet-command-center` project from the dropdown.
+2. Choose all three environments:
    - ✅ **Production**
    - ✅ **Preview**
-   - ✅ **Development** (allows local use via `vercel env pull`)
-4. Click **"Connect"**.
+   - ✅ **Development**
+3. Click **"Connect"**.
+
+Vercel automatically adds the database credentials as environment variables in your project.
 
 ---
 
-### 2.4 Copy the KV credentials
+### 2.5 Copy the credentials
 
-1. Click into the KV store you just created → open the **".env.local"** tab.
-2. You'll see something like:
+1. Click into the database you just created → open the **"Details"** or **".env.local"** tab.
+2. You'll see:
 
    ```
-   KV_URL=redis://...
-   KV_REST_API_URL=https://...upstash.io
-   KV_REST_API_TOKEN=AXxx...
-   KV_REST_API_READ_ONLY_TOKEN=AXxx...
+   UPSTASH_REDIS_REST_URL=https://your-db.upstash.io
+   UPSTASH_REDIS_REST_TOKEN=AXxx...
    ```
 
-3. Copy **`KV_REST_API_URL`** and **`KV_REST_API_TOKEN`** — you need these in Step 3.
+3. Copy both values — you'll paste them into Vercel env vars in Step 3.
 
-> **Alternative:** Run `vercel env pull .env.local` in your project directory to pull all environment variables including KV credentials automatically. Requires the [Vercel CLI](https://vercel.com/docs/cli) (`npm i -g vercel`).
+> **Shortcut:** Run `vercel env pull .env.local` in your project directory to pull all environment variables (including the Redis credentials) directly into a local file. Requires the [Vercel CLI](https://vercel.com/docs/cli) (`npm i -g vercel`).
 
 ---
 
@@ -191,14 +207,14 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ---
 
-#### Vercel KV
+#### Upstash Redis
 
 | Name | Value | Notes |
 |------|-------|-------|
-| `KV_REST_API_URL` | *(from Step 2.4)* | The Upstash REST URL |
-| `KV_REST_API_TOKEN` | *(from Step 2.4)* | The Upstash REST token |
+| `UPSTASH_REDIS_REST_URL` | *(from Step 2.5)* | The Upstash REST URL |
+| `UPSTASH_REDIS_REST_TOKEN` | *(from Step 2.5)* | The Upstash REST token |
 
-> If you used **"Connect to Project"** in Step 2.3, Vercel may have already added these automatically. Check if they're already present before adding them again.
+> If you used **"Connect to Project"** in Step 2.4, Vercel will have already added these automatically. Check if they're already present before adding them again — you can see them under **Settings → Environment Variables** in your project.
 
 ---
 
@@ -227,8 +243,8 @@ ALLOWED_ORIGIN
 X_CLIENT_ID
 X_CLIENT_SECRET
 X_CALLBACK_URL
-KV_REST_API_URL
-KV_REST_API_TOKEN
+UPSTASH_REDIS_REST_URL
+UPSTASH_REDIS_REST_TOKEN
 CRON_SECRET
 ```
 
@@ -328,7 +344,7 @@ The local server uses an **in-memory KV store** when `KV_REST_API_URL` is not se
 | "X OAuth not configured" on Connect X | `X_CLIENT_ID` not set | Add env var in Vercel and redeploy |
 | Redirect to `/?xError=invalid_state` | PKCE state expired (>5 min) or cookie blocked | Try again; ensure browser allows cookies from your domain |
 | Redirect to `/?xError=…` with an X error message | Callback URL mismatch | Make sure `X_CALLBACK_URL` exactly matches the URL registered in the X portal |
-| "X session expired — reconnect" | KV not connected or tokens TTL expired | Re-connect X; check `KV_REST_API_URL` is set |
+| "X session expired — reconnect" | Upstash not connected or tokens TTL expired | Re-connect X; check `UPSTASH_REDIS_REST_URL` is set |
 | Cron runs but posts nothing | Tweets' `scheduledAt` is in the future | Wait for the scheduled time, or test with past-dated tweets |
 | Cron returns `errors: N` | Invalid/expired access token | Disconnect and reconnect X to get a fresh token |
 | Tweets post but X returns 403 | App permissions not set to Read+Write | Update permissions in X portal → User authentication settings |
