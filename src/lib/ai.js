@@ -113,15 +113,18 @@ export function hasTweetDefect(text, templateName = '') {
   // checklist: must contain at least 4 ☑ bullets (prompt requires minimum 4)
   if (templateName === 'checklist' && (text.match(/^☑/gm) || []).length < 4) return true;
 
-  // lessons_learned: must have a second paragraph with at least one complete sentence
-  // Intentionally broad — the prompt enforces "The lesson:" format, detection just requires
-  // that a payoff paragraph exists and isn't empty. "The lesson:" check was too strict and
-  // marked complete tweets defective when Claude phrased the lesson differently.
+  // lessons_learned: payoff paragraph must be present and read as a lesson, not more story.
+  // A multi-sentence payoff without "lesson" keyword signals the story is still running —
+  // e.g. "By Thursday I was making decisions I'd regret by Monday." is not a lesson.
+  // Single-sentence conclusions pass without the keyword (they read as principles).
   if (templateName === 'lessons_learned') {
     const parts = text.split('\n\n');
     if (parts.length < 2) return true;
     const lessonPart = parts[parts.length - 1].trim();
     if (!lessonPart || !/[.!?]/.test(lessonPart)) return true;
+    const hasLessonKeyword = /\blesson\b/i.test(lessonPart);
+    const lessonSentences = (lessonPart.match(/[.!?]/g) || []).length;
+    if (!hasLessonKeyword && lessonSentences > 1) return true;
   }
 
   // simple_process / checklist stub: hook line ends with ":" but items never follow

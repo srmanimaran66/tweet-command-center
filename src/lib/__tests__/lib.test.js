@@ -337,6 +337,16 @@ describe('hasTweetDefect — lessons_learned, checklist stub, simple_process stu
     expect(hasTweetDefect(emptyLesson, 'lessons_learned')).toBe(true);
   });
 
+  test('lessons_learned with multi-sentence story payoff (no lesson keyword) IS defective', () => {
+    const storyEnding = "I optimized my schedule and burned out anyway.\n\nEvery hour was blocked. Every task had a label. By Thursday I was making decisions I'd regret by Monday.";
+    expect(hasTweetDefect(storyEnding, 'lessons_learned')).toBe(true);
+  });
+
+  test('lessons_learned with single-sentence conclusion (no keyword) is NOT defective', () => {
+    const noLabel = 'I optimized my schedule and burned out anyway.\n\nOptimizing a broken system just makes failure more efficient.';
+    expect(hasTweetDefect(noLabel, 'lessons_learned')).toBe(false);
+  });
+
   // checklist: must have at least 3 ☑ bullets — not 0, not 1, not 2
   test('checklist with 0 ☑ bullets IS defective', () => {
     const stub = 'Your intake form is doing nothing.\n\nHere\'s what it should do:';
