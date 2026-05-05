@@ -375,6 +375,48 @@ describe('hasTweetDefect — lessons_learned, checklist stub, simple_process stu
   });
 });
 
+// ─── prediction minimum sentences + hot_take dangling tease ──────────────────
+// prediction: no structural check existed — a 1-sentence stub passed undetected
+// hot_take: 3-sentence minimum didn't catch a 4-sentence tweet whose final line
+//   was "The real question isn't what AI replaces." — a setup without a payoff
+
+describe('hasTweetDefect — prediction minimum and hot_take dangling tease', () => {
+  test('prediction with 1 sentence IS defective', () => {
+    const stub = 'By 2027, founder mental health will be a board metric.';
+    expect(hasTweetDefect(stub, 'prediction')).toBe(true);
+  });
+
+  test('prediction with 2 sentences IS defective', () => {
+    const stub = 'By 2027, founder mental health will be a board metric.\n\nThe grind narrative is collapsing.';
+    expect(hasTweetDefect(stub, 'prediction')).toBe(true);
+  });
+
+  test('prediction with 3 sentences is NOT defective', () => {
+    const complete = 'By 2027, founder mental health will be a board metric.\n\nThe grind narrative is collapsing. Investors are watching burnout sink otherwise fundable companies.';
+    expect(hasTweetDefect(complete, 'prediction')).toBe(false);
+  });
+
+  test('hot_take ending with "The real X isn\'t [interrogative]" IS defective', () => {
+    const tease = 'AI agents are not replacing junior roles. They\'re exposing bad senior ones.\n\nIf your team needed a junior hire to do work that a Claude agent now handles in 20 minutes — that work was never strategic. The real question isn\'t what AI replaces.';
+    expect(hasTweetDefect(tease, 'hot_take')).toBe(true);
+  });
+
+  test('hot_take ending with a complete payoff statement is NOT defective', () => {
+    const complete = 'AI agents are not replacing junior roles. They\'re exposing bad senior ones.\n\nThe work that disappeared wasn\'t strategic. The shift isn\'t fewer jobs. It\'s higher bars.';
+    expect(hasTweetDefect(complete, 'hot_take')).toBe(false);
+  });
+
+  test('"The real X isn\'t [interrogative]" is caught regardless of templateName', () => {
+    const tease = 'Founders chase tools. The real question isn\'t what stack you use.';
+    expect(hasTweetDefect(tease, 'contrarian_insight')).toBe(true);
+  });
+
+  test('"The real X isn\'t [noun phrase]" is NOT flagged — a concrete contrast is a valid ending', () => {
+    const valid = 'Burnout isn\'t a wellness issue. It\'s a P&L problem.\n\nDecision quality is your most leveraged asset. The real failure isn\'t exhaustion.';
+    expect(hasTweetDefect(valid, 'hot_take')).toBe(false);
+  });
+});
+
 // ─── Failure 5: getNextMonday skips current week when called on Monday ────────
 // Symptom: user opens app on Monday morning and gets content scheduled
 //          for the FOLLOWING Monday (+7 days) instead of this week

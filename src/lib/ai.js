@@ -85,6 +85,17 @@ export function hasTweetDefect(text, templateName = '') {
     if (sentenceCount < 3) return true;
   }
 
+  // prediction: hook alone is a stub — requires at least 3 sentences
+  if (templateName === 'prediction') {
+    const sentenceCount = (text.match(/[.!?](?=[\s\n]|$)/g) || []).length;
+    if (sentenceCount < 3) return true;
+  }
+
+  // Dangling rhetorical tease: last SENTENCE ends with "The real X isn...t [interrogative]"
+  // — a setup that implies a payoff the tweet never delivers
+  const lastSentence = text.trimEnd().split(/(?<=[.!?])\s+/).pop()?.trim() ?? "";
+  if (/\bThe real \w+ isn/i.test(lastSentence) && /\b(what|who|why|where|when|how|whether)\b/i.test(lastSentence)) return true;
+
   // simple_process: items 1, 2, and 3 must each be explicitly present
   if (templateName === 'simple_process') {
     if (!/^1\./m.test(text) || !/^2\./m.test(text) || !/^3\./m.test(text)) return true;
