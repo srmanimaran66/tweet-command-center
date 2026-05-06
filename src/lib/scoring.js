@@ -5,7 +5,7 @@ const STRONG_HOOK_WORDS = [
   'hot take', 'most people', 'they won\'t', 'what nobody',
   'underrated', 'overrated', 'actually', 'backwards',
   'lied', 'myth', 'lie', 'broken', 'failing', 'killing',
-  'dying', 'dead', 'obsolete', 'outdated', 'replace',
+  'dying', 'dead', 'obsolete', 'outdated', 'replace', 'misleading', 'buried',
 ];
 
 // Structural hook patterns — strong openers that don't rely on keywords
@@ -17,6 +17,8 @@ const STRONG_HOOK_PATTERNS = [
   /won't .{5,40}\. (it'll|they'll|you'll)/i,                    // "won't X. It'll Y" contrarian flip
   /isn't .{5,40}\. it's/i,                                      // "isn't X. It's Y"
   /before.{5,30}after/i,                                        // before/after openers
+  /^most \w+/i,                                               // 'Most founders/operators...' contrarian opens
+  /I used to .{5,50}[.!] I should have/i,                       // reflection contrast hook
 ];
 
 const ENGAGEMENT_SIGNALS = [
@@ -36,7 +38,7 @@ const SPECIFICITY_SIGNALS = [
 // Visual formatting markers that improve scannability
 const FORMATTING_SIGNALS = [
   /[→•·]\s/,          // arrow/bullet lists
-  /[✅❌⚡🔥]\s/u,     // emoji bullets
+  /[✅❌⚡🔥☑]\s/u,     // emoji bullets
   /^\d\./m,           // numbered list
   /\*\*.+\*\*/,       // bold markdown
   /phase \d+/i,       // phase labels
@@ -106,12 +108,14 @@ export function scoreTweet(tweet, profile) {
   breakdown.topicRelevance = relevanceScore;
 
   // Engagement potential (15 pts)
+  const isOpinionTemplate = tweet.templateName === 'agree_disagree' || tweet.templateName === 'hot_take';
   const hasEngagement = ENGAGEMENT_SIGNALS.some(s => fullText.toLowerCase().includes(s));
   const hasQuestion = fullText.includes('?');
   const hasOpenLoop = OPEN_LOOP_PATTERNS.some(r => r.test(ctaText));
   const engagementScore = hasOpenLoop ? 15 :
     hasEngagement && hasQuestion ? 15 :
-    hasEngagement ? 11 : 7;
+    hasEngagement ? 11 :
+    isOpinionTemplate ? 11 : 7;
   score += engagementScore;
   breakdown.engagementPotential = engagementScore;
 

@@ -46,6 +46,42 @@ describe('scoreTweet — hook strength', () => {
     expect(breakdown.hookStrength).toBe(15);
   });
 
+  test("keyword 'misleading' → 25", () => {
+    const { breakdown } = scoreTweet({
+      hookText: 'Stripe MRR is the most misleading metric a SaaS founder can celebrate.',
+      fullText: 'Stripe MRR is the most misleading metric a SaaS founder can celebrate.\n\nNew MRR feels like traction.',
+      ctaText: '',
+    }, PROFILE);
+    expect(breakdown.hookStrength).toBe(25);
+  });
+
+  test("keyword 'buried' → 25", () => {
+    const { breakdown } = scoreTweet({
+      hookText: 'Your best work is being buried under your busiest work.',
+      fullText: 'Your best work is being buried under your busiest work.\n\nFix the calendar first.',
+      ctaText: '',
+    }, PROFILE);
+    expect(breakdown.hookStrength).toBe(25);
+  });
+
+  test("pattern '^most \\w+' catches 'Most solo operators...' → 25", () => {
+    const { breakdown } = scoreTweet({
+      hookText: 'Most solo operators hitting $1M ARR built a job, not a business.',
+      fullText: 'Most solo operators hitting $1M ARR built a job, not a business.\n\nThe revenue is real. So is the dependency.',
+      ctaText: '',
+    }, PROFILE);
+    expect(breakdown.hookStrength).toBe(25);
+  });
+
+  test("pattern 'I used to / I should have' → 25", () => {
+    const { breakdown } = scoreTweet({
+      hookText: 'I used to protect my calendar. I should have protected my attention.',
+      fullText: 'I used to protect my calendar. I should have protected my attention.\n\nThe lesson: schedule focus, not tasks.',
+      ctaText: '',
+    }, PROFILE);
+    expect(breakdown.hookStrength).toBe(25);
+  });
+
   test('no strong hook, hook <15 chars → 10', () => {
     const { breakdown } = scoreTweet({
       hookText: 'Quick tip.',
@@ -162,6 +198,36 @@ describe('scoreTweet — engagement potential', () => {
     }, PROFILE);
     expect(breakdown.engagementPotential).toBe(7);
   });
+
+  test('agree_disagree template without explicit engagement signals → 11', () => {
+    const { breakdown } = scoreTweet({
+      hookText: '',
+      fullText: 'The 4-day work week is a diagnostic, not a reward. Founders who struggle with it have a structure problem.',
+      ctaText: '',
+      templateName: 'agree_disagree',
+    }, PROFILE);
+    expect(breakdown.engagementPotential).toBe(11);
+  });
+
+  test('hot_take template without explicit engagement signals → 11', () => {
+    const { breakdown } = scoreTweet({
+      hookText: '',
+      fullText: 'Most solo operators built a job, not a business. The revenue is real. So is the dependency.',
+      ctaText: '',
+      templateName: 'hot_take',
+    }, PROFILE);
+    expect(breakdown.engagementPotential).toBe(11);
+  });
+
+  test('non-opinion template without engagement signals → 7', () => {
+    const { breakdown } = scoreTweet({
+      hookText: '',
+      fullText: 'Build the system. Ship the product. Iterate.',
+      ctaText: '',
+      templateName: 'lessons_learned',
+    }, PROFILE);
+    expect(breakdown.engagementPotential).toBe(7);
+  });
 });
 
 // ─── scoreTweet — tone fit (10 pts) ──────────────────────────────────────────
@@ -267,6 +333,15 @@ describe('scoreTweet — formatting bonus', () => {
       ctaText: '',
     }, PROFILE);
     expect(breakdown.formatting).toBe(0);
+  });
+
+  test('☑ emoji bullets count as formatting signal → 2', () => {
+    const { breakdown } = scoreTweet({
+      hookText: '',
+      fullText: 'Your workflow has process debt.\n\n☑ No one owns decisions\n☑ Onboarding lives in heads\n☑ Tasks done twice\n☑ Slow feedback loops',
+      ctaText: '',
+    }, PROFILE);
+    expect(breakdown.formatting).toBeGreaterThanOrEqual(2);
   });
 
   test('one formatting signal (numbered list) → 2', () => {
