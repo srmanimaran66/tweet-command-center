@@ -54,10 +54,11 @@ export function hasTweetDefect(text, templateName = '') {
   const lastNonEmpty = nonEmpty[nonEmpty.length - 1]?.trim() ?? '';
 
   // Empty numbered or bulleted list item alone on a line
-  if (lines.some(l => /^(\d+\.|-|•|☑)\s*$/.test(l.trim()))) return true;
+  // Accepts all common checkmark variants Claude may use (☑ ✅ ✔ ✓)
+  if (lines.some(l => /^(\d+\.|-|•|[☑✅✔✓])\s*$/u.test(l.trim()))) return true;
 
   // Last non-empty line is just a list marker
-  if (/^(\d+\.|-|•|☑)\s*$/.test(lastNonEmpty)) return true;
+  if (/^(\d+\.|-|•|[☑✅✔✓])\s*$/u.test(lastNonEmpty)) return true;
 
   // Setup line ending with ":" — the body/list was never written
   if (lastNonEmpty.endsWith(':')) return true;
@@ -110,8 +111,8 @@ export function hasTweetDefect(text, templateName = '') {
     if (!has1 || !has2 || !has3) return true;
   }
 
-  // checklist: must contain at least 4 ☑ bullets (prompt requires minimum 4)
-  if (templateName === 'checklist' && (text.match(/^☑/gm) || []).length < 4) return true;
+  // checklist: must contain at least 4 checkmark bullets (accepts all common variants)
+  if (templateName === 'checklist' && (text.match(/^[☑✅✔✓]/gmu) || []).length < 4) return true;
 
   // lessons_learned: payoff paragraph must be present and read as a lesson, not more story.
   // A multi-sentence payoff without "lesson" keyword signals the story is still running —
@@ -132,7 +133,7 @@ export function hasTweetDefect(text, templateName = '') {
   if (['simple_process', 'checklist'].includes(templateName)) {
     const hasColon = nonEmpty.some(l => l.trim().endsWith(':'));
     const hasItems = templateName === 'checklist'
-      ? text.includes('☑')
+      ? /[☑✅✔✓]/u.test(text)
       : /^\d+\./m.test(text);
     if (hasColon && !hasItems) return true;
   }
