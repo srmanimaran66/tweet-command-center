@@ -236,6 +236,7 @@ export default function App() {
         let current = tweet;
 
         if (current.defective) {
+          let lastP2Error = 'no attempt';
           for (let attempt = 1; attempt <= 3 && current.defective; attempt++) {
             try {
               const raw = await callClaude(buildCompletionPrompt(current), { maxTokens: 2000 });
@@ -246,15 +247,18 @@ export default function App() {
                 if (!defective) {
                   const { score } = scoreTweet({ ...current, fullText }, p);
                   current = { ...current, fullText, hookText: updated.hookText || current.hookText, bodyText: updated.bodyText || current.bodyText, score, defective: false, improveFailed: false };
+                } else {
+                  lastP2Error = `still-defective after JSON completion (template=${current.templateName}, text="${fullText.slice(0, 80)}")`;
                 }
-                // If still defective, keep original fullText so the next attempt's
-                // completion prompt stays accurate ("missing" stays true, not "partially present")
+              } else {
+                lastP2Error = `parseJSON returned no fullText (raw="${(raw||'').slice(0, 120)}")`;
               }
             } catch (err) {
-              console.warn(`[pass2 completion attempt ${attempt}] Day ${current.dayNumber} slot ${current.tweetOrder}:`, err.message);
+              lastP2Error = err.message;
+              console.warn(`[pass2 attempt ${attempt}] D${current.dayNumber}S${current.tweetOrder}:`, err.message);
             }
           }
-          if (current.defective) current = { ...current, improveFailed: true };
+          if (current.defective) current = { ...current, improveFailed: true, _p2Error: lastP2Error };
         }
 
         if (!current.defective && current.score < 65) {
@@ -279,24 +283,31 @@ export default function App() {
       // Avoids JSON entirely — Claude outputs raw tweet text, no parsing can fail.
       const thirdImproved = await Promise.all(rescored2.map(async (tweet) => {
         if (!tweet.defective) return tweet;
+        let p3Error = 'not attempted';
         try {
           const raw = await callClaude(buildPlainTextCompletionPrompt(tweet), { maxTokens: 1000 });
           const fullText = cleanTweetArtifacts(raw.trim());
+          console.log(`[pass3] D${tweet.dayNumber}S${tweet.tweetOrder} raw (first 200):`, JSON.stringify(fullText.slice(0, 200)));
           if (fullText && !hasTweetDefect(fullText, tweet.templateName)) {
             const { score } = scoreTweet({ ...tweet, fullText }, p);
-            console.log(`[pass3 plain-text] Day ${tweet.dayNumber} slot ${tweet.tweetOrder} fixed`);
             return { ...tweet, fullText, score, defective: false, improveFailed: false };
           }
+          p3Error = `still-defective: "${fullText.slice(0, 120)}"`;
         } catch (err) {
-          console.warn(`[pass3 plain-text] Day ${tweet.dayNumber} slot ${tweet.tweetOrder}:`, err.message);
+          p3Error = err.message;
+          console.warn(`[pass3] D${tweet.dayNumber}S${tweet.tweetOrder}:`, err.message);
         }
-        return tweet;
+        return { ...tweet, _p3Error: p3Error };
       }));
       const rescored3 = scoreAllTweets(thirdImproved, p);
 
       const stillDefective = rescored3.filter(t => t.defective);
       if (stillDefective.length > 0) {
-        throw new Error(`Generation could not complete cleanly (${stillDefective.length} tweet${stillDefective.length > 1 ? 's' : ''} remained incomplete after multiple attempts). Please try again.`);
+        const diagnostics = stillDefective.map(t =>
+          `D${t.dayNumber}S${t.tweetOrder}[${t.templateName}] pass2="${t._p2Error}" pass3="${t._p3Error}"`
+        );
+        console.error('[generation failed] Defective tweets:', diagnostics);
+        throw new Error(`Generation could not complete cleanly (${stillDefective.length} tweet${stillDefective.length > 1 ? 's' : ''} remained incomplete). Open browser console (F12) to see the specific error. Please try again.`);
       }
 
       const startDate = getNextMonday();
