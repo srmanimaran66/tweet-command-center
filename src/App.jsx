@@ -94,6 +94,7 @@ function genId() { return `tw_${nextId++}_${Date.now()}`; }
 
 // Error screen
 function ErrorScreen({ error, onRetry, onBack }) {
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   return (
     <div className="min-h-screen bg-[#0a0a12] flex items-center justify-center p-4">
       <div className="text-center max-w-sm">
@@ -102,9 +103,11 @@ function ErrorScreen({ error, onRetry, onBack }) {
         </div>
         <h2 className="text-white font-semibold text-lg mb-2">Generation failed</h2>
         <p className="text-slate-400 text-sm mb-2">{error}</p>
-        <p className="text-slate-600 text-xs mb-6">
-          Make sure the server is running: <code className="text-slate-400">node server.js</code>
-        </p>
+        {isLocal && (
+          <p className="text-slate-600 text-xs mb-6">
+            Make sure the server is running: <code className="text-slate-400">node server.js</code>
+          </p>
+        )}
         <div className="flex gap-3 justify-center">
           <button
             onClick={onBack}
@@ -239,8 +242,13 @@ export default function App() {
               const updated = parseJSON(raw);
               if (updated?.fullText) {
                 const fullText = cleanTweetArtifacts(updated.fullText);
-                const { score } = scoreTweet({ ...current, fullText }, p);
-                current = { ...current, fullText, hookText: updated.hookText || current.hookText, bodyText: updated.bodyText || current.bodyText, score, defective: hasTweetDefect(fullText, current.templateName), improveFailed: false };
+                const defective = hasTweetDefect(fullText, current.templateName);
+                if (!defective) {
+                  const { score } = scoreTweet({ ...current, fullText }, p);
+                  current = { ...current, fullText, hookText: updated.hookText || current.hookText, bodyText: updated.bodyText || current.bodyText, score, defective: false, improveFailed: false };
+                }
+                // If still defective, keep original fullText so the next attempt's
+                // completion prompt stays accurate ("missing" stays true, not "partially present")
               }
             } catch (err) {
               console.warn(`[pass2 completion attempt ${attempt}] Day ${current.dayNumber} slot ${current.tweetOrder}:`, err.message);
