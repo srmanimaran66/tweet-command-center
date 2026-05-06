@@ -109,8 +109,23 @@ describe('scoreTweet — clarity', () => {
     expect(breakdown.clarity).toBe(17);
   });
 
-  test('>280 chars → 8', () => {
+  test('>280 chars (non-structured) → 8', () => {
     const { breakdown } = scoreTweet({ hookText: '', fullText: tweetOfLength(300), ctaText: '' }, PROFILE);
+    expect(breakdown.clarity).toBe(8);
+  });
+
+  test('281–360 chars on a checklist template → 13 (gentler structured penalty)', () => {
+    const { breakdown } = scoreTweet({ hookText: '', fullText: tweetOfLength(320), ctaText: '', templateName: 'checklist' }, PROFILE);
+    expect(breakdown.clarity).toBe(13);
+  });
+
+  test('281–360 chars on a before_after template → 13', () => {
+    const { breakdown } = scoreTweet({ hookText: '', fullText: tweetOfLength(340), ctaText: '', templateName: 'before_after' }, PROFILE);
+    expect(breakdown.clarity).toBe(13);
+  });
+
+  test('>360 chars on a structured template still → 8', () => {
+    const { breakdown } = scoreTweet({ hookText: '', fullText: tweetOfLength(370), ctaText: '', templateName: 'checklist' }, PROFILE);
     expect(breakdown.clarity).toBe(8);
   });
 

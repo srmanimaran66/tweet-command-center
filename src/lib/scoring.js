@@ -86,11 +86,16 @@ export function scoreTweet(tweet, profile) {
   score += hookScore;
   breakdown.hookStrength = hookScore;
 
-  // Clarity / length (20 pts) — penalizes tweets over Twitter's 280-char limit
+  // Clarity / length (20 pts) — penalizes tweets over Twitter's 280-char limit.
+  // Structured templates (checklist, before_after) legitimately run longer due to
+  // required list items; they get a gentler penalty tier up to 360 chars.
   const charCount = fullText.length;
+  const STRUCTURED_TEMPLATES = ['checklist', 'before_after', 'framework_3_step', 'simple_process'];
+  const isStructured = STRUCTURED_TEMPLATES.includes(tweet.templateName || '');
   const clarityScore =
     charCount >= 80 && charCount <= 220 ? 20 :
     charCount > 220 && charCount <= 280 ? 17 :
+    charCount > 280 && charCount <= 360 && isStructured ? 13 :
     charCount > 280 ? 8 : 10;
   score += clarityScore;
   breakdown.clarity = clarityScore;

@@ -141,6 +141,11 @@ describe('buildGenerateWeekPrompt — hookHistory (angle repetition prevention)'
     const prompt = buildGenerateWeekPrompt(PROFILE, TRENDS);
     expect(prompt).not.toContain('RECENTLY USED ANGLES');
   });
+
+  test('includes structural variation rule when history is provided', () => {
+    const prompt = buildGenerateWeekPrompt(PROFILE, TRENDS, [], HISTORY);
+    expect(prompt).toContain('Structural variation rule');
+  });
 });
 
 describe('buildGenerateWeekPrompt — terminology gate', () => {
