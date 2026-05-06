@@ -13,9 +13,13 @@ import { AlertCircle, RefreshCw } from 'lucide-react';
 
 const STORAGE_KEY = 'tweetfull_profile';
 const PREV_WEEK_KEY = 'tweetfull_previous_week';
+const HOOK_HISTORY_KEY = 'tweetfull_hook_history';
 const PROFILE_VERSION = 1;
 const PREV_WEEK_VERSION = 1;
+const HOOK_HISTORY_VERSION = 1;
 const PREV_WEEK_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+const HOOK_HISTORY_TTL_MS = 21 * 24 * 60 * 60 * 1000; // 21 days — 3-week rolling window
+const HOOK_HISTORY_MAX_WEEKS = 3;
 
 function loadProfile() {
   try {
@@ -53,6 +57,32 @@ function savePreviousWeek(tweets) {
     _savedAt: Date.now(),
     tweets: slim,
   }));
+}
+
+function loadHookHistory() {
+  try {
+    const data = JSON.parse(localStorage.getItem(HOOK_HISTORY_KEY) || "null");
+    if (!data || data._version !== HOOK_HISTORY_VERSION) return [];
+    const now = Date.now();
+    return (data.weeks || [])
+      .filter(w => now - w._savedAt < HOOK_HISTORY_TTL_MS)
+      .slice(0, HOOK_HISTORY_MAX_WEEKS);
+  } catch {
+    return [];
+  }
+}
+
+function saveHookHistory(tweets) {
+  try {
+    const hooks = tweets
+      .filter(t => t.hookText)
+      .map(t => ({ dayNumber: t.dayNumber, tweetOrder: t.tweetOrder, hookText: t.hookText }));
+    const existing = loadHookHistory();
+    const weeks = [{ _savedAt: Date.now(), hooks }, ...existing].slice(0, HOOK_HISTORY_MAX_WEEKS);
+    localStorage.setItem(HOOK_HISTORY_KEY, JSON.stringify({ _version: HOOK_HISTORY_VERSION, weeks }));
+  } catch {
+    // storage errors are non-fatal
+  }
 }
 
 let nextId = 1;
@@ -137,7 +167,8 @@ export default function App() {
     try {
       const trends = getTrendsForProfile(p);
       const previousWeekTweets = loadPreviousWeek();
-      const prompt = buildGenerateWeekPrompt(p, trends, previousWeekTweets);
+      const hookHistory = loadHookHistory();
+      const prompt = buildGenerateWeekPrompt(p, trends, previousWeekTweets, hookHistory);
       const raw = await callClaude(prompt, { maxTokens: 12000 });
       const parsed = parseJSON(raw);
 
@@ -234,6 +265,7 @@ export default function App() {
       const scheduled = assignSchedule(rescored2, startDate, p.timeZone);
 
       savePreviousWeek(scheduled);
+      saveHookHistory(scheduled);
       setTweets(scheduled);
       setIsGenerating(false);
     } catch (err) {

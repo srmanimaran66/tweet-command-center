@@ -99,6 +99,63 @@ describe('buildGenerateWeekPrompt — profile fields', () => {
   });
 });
 
+describe('buildGenerateWeekPrompt — hookHistory (angle repetition prevention)', () => {
+  const HISTORY = [
+    {
+      hooks: [
+        { dayNumber: 1, tweetOrder: 2, hookText: 'Clarity is not a personality trait. It is a discipline.' },
+        { dayNumber: 2, tweetOrder: 3, hookText: 'Bootstrapped used to mean underfunded. Not anymore.' },
+      ],
+    },
+    {
+      hooks: [
+        { dayNumber: 1, tweetOrder: 2, hookText: 'Confidence is not the goal. Repeatability is.' },
+      ],
+    },
+  ];
+
+  test('includes RECENTLY USED ANGLES block when history provided', () => {
+    const prompt = buildGenerateWeekPrompt(PROFILE, TRENDS, [], HISTORY);
+    expect(prompt).toContain('RECENTLY USED ANGLES');
+  });
+
+  test('injects hook text from each week into the block', () => {
+    const prompt = buildGenerateWeekPrompt(PROFILE, TRENDS, [], HISTORY);
+    expect(prompt).toContain('Clarity is not a personality trait. It is a discipline.');
+    expect(prompt).toContain('Bootstrapped used to mean underfunded. Not anymore.');
+    expect(prompt).toContain('Confidence is not the goal. Repeatability is.');
+  });
+
+  test('labels each hook with week-ago offset', () => {
+    const prompt = buildGenerateWeekPrompt(PROFILE, TRENDS, [], HISTORY);
+    expect(prompt).toContain('1w ago');
+    expect(prompt).toContain('2w ago');
+  });
+
+  test('omits RECENTLY USED ANGLES block when history is empty', () => {
+    const prompt = buildGenerateWeekPrompt(PROFILE, TRENDS, [], []);
+    expect(prompt).not.toContain('RECENTLY USED ANGLES');
+  });
+
+  test('omits RECENTLY USED ANGLES block when hookHistory is not passed', () => {
+    const prompt = buildGenerateWeekPrompt(PROFILE, TRENDS);
+    expect(prompt).not.toContain('RECENTLY USED ANGLES');
+  });
+});
+
+describe('buildGenerateWeekPrompt — terminology gate', () => {
+  test('prompt contains TERMINOLOGY GATE section', () => {
+    const prompt = buildGenerateWeekPrompt(PROFILE, TRENDS);
+    expect(prompt).toContain('TERMINOLOGY GATE');
+  });
+
+  test('TERMINOLOGY GATE forbids cap table misuse', () => {
+    const prompt = buildGenerateWeekPrompt(PROFILE, TRENDS);
+    expect(prompt).toContain('cap table');
+    expect(prompt).toContain('fundraising variable');
+  });
+});
+
 describe('buildGenerateWeekPrompt — previousWeekTweets', () => {
   test('includes last week block when previous tweets provided', () => {
     const prev = [{ dayNumber: 1, tweetOrder: 1, fullText: 'Previous tweet content here.' }];
