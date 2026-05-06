@@ -233,18 +233,20 @@ export default function App() {
         let current = tweet;
 
         if (current.defective) {
-          try {
-            const raw = await callClaude(buildCompletionPrompt(current), { maxTokens: 1000 });
-            const updated = parseJSON(raw);
-            if (updated.fullText) {
-              const fullText = cleanTweetArtifacts(updated.fullText);
-              const { score } = scoreTweet({ ...current, fullText }, p);
-              current = { ...current, fullText, hookText: updated.hookText || current.hookText, bodyText: updated.bodyText || current.bodyText, score, defective: hasTweetDefect(fullText, current.templateName), improveFailed: false };
+          for (let attempt = 1; attempt <= 3 && current.defective; attempt++) {
+            try {
+              const raw = await callClaude(buildCompletionPrompt(current), { maxTokens: 2000 });
+              const updated = parseJSON(raw);
+              if (updated?.fullText) {
+                const fullText = cleanTweetArtifacts(updated.fullText);
+                const { score } = scoreTweet({ ...current, fullText }, p);
+                current = { ...current, fullText, hookText: updated.hookText || current.hookText, bodyText: updated.bodyText || current.bodyText, score, defective: hasTweetDefect(fullText, current.templateName), improveFailed: false };
+              }
+            } catch (err) {
+              console.warn(`[pass2 completion attempt ${attempt}] Day ${current.dayNumber} slot ${current.tweetOrder}:`, err.message);
             }
-          } catch (err) {
-            console.warn(`[improve pass 2 completion] Day ${current.dayNumber} slot ${current.tweetOrder} failed:`, err.message);
-            current = { ...current, improveFailed: true };
           }
+          if (current.defective) current = { ...current, improveFailed: true };
         }
 
         if (!current.defective && current.score < 65) {
@@ -264,6 +266,11 @@ export default function App() {
         return current;
       }));
       const rescored2 = scoreAllTweets(secondImproved, p);
+
+      const stillDefective = rescored2.filter(t => t.defective);
+      if (stillDefective.length > 0) {
+        throw new Error(`Generation could not complete cleanly (${stillDefective.length} tweet${stillDefective.length > 1 ? 's' : ''} remained incomplete after multiple attempts). Please try again.`);
+      }
 
       const startDate = getNextMonday();
       const scheduled = assignSchedule(rescored2, startDate, p.timeZone);
