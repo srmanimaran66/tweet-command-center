@@ -19,6 +19,7 @@ const STRONG_HOOK_PATTERNS = [
   /before.{5,30}after/i,                                        // before/after openers
   /^most \w+/i,                                               // 'Most founders/operators...' contrarian opens
   /I used to .{5,50}[.!] I should have/i,                       // reflection contrast hook
+  /\bin \d+ steps?\b/i,                                       // "in 3 steps" anywhere in hook
 ];
 
 const ENGAGEMENT_SIGNALS = [

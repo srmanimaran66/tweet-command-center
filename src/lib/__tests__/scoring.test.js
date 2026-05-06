@@ -73,6 +73,15 @@ describe('scoreTweet — hook strength', () => {
     expect(breakdown.hookStrength).toBe(25);
   });
 
+  test("pattern 'in N steps' anywhere in hook → 25", () => {
+    const { breakdown } = scoreTweet({
+      hookText: 'Turn a stalled lead into a closed deal in 3 steps.',
+      fullText: 'Turn a stalled lead into a closed deal in 3 steps.\n\nStep 1: Capture the blocker\nStep 2: Draft the fix\nStep 3: Approve and send',
+      ctaText: '',
+    }, PROFILE);
+    expect(breakdown.hookStrength).toBe(25);
+  });
+
   test("pattern 'I used to / I should have' → 25", () => {
     const { breakdown } = scoreTweet({
       hookText: 'I used to protect my calendar. I should have protected my attention.',

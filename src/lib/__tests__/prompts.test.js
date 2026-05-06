@@ -103,13 +103,13 @@ describe('buildGenerateWeekPrompt — hookHistory (angle repetition prevention)'
   const HISTORY = [
     {
       hooks: [
-        { dayNumber: 1, tweetOrder: 2, hookText: 'Clarity is not a personality trait. It is a discipline.' },
-        { dayNumber: 2, tweetOrder: 3, hookText: 'Bootstrapped used to mean underfunded. Not anymore.' },
+        { dayNumber: 1, tweetOrder: 2, angle: 'Clarity is not a personality trait. It is a discipline. Founders who communicate crisply have one habit: writing the point before they speak it.' },
+        { dayNumber: 2, tweetOrder: 3, angle: 'Bootstrapped used to mean underfunded. Not anymore. Old: raise to hire New: automate before headcount' },
       ],
     },
     {
       hooks: [
-        { dayNumber: 1, tweetOrder: 2, hookText: 'Confidence is not the goal. Repeatability is.' },
+        { dayNumber: 1, tweetOrder: 2, angle: 'Confidence is not the goal. Repeatability is. Founders who look decisive have built a repeatable decision filter.' },
       ],
     },
   ];
@@ -119,7 +119,7 @@ describe('buildGenerateWeekPrompt — hookHistory (angle repetition prevention)'
     expect(prompt).toContain('RECENTLY USED ANGLES');
   });
 
-  test('injects hook text from each week into the block', () => {
+  test('injects angle text from each week into the block', () => {
     const prompt = buildGenerateWeekPrompt(PROFILE, TRENDS, [], HISTORY);
     expect(prompt).toContain('Clarity is not a personality trait. It is a discipline.');
     expect(prompt).toContain('Bootstrapped used to mean underfunded. Not anymore.');

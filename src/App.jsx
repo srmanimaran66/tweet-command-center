@@ -16,7 +16,7 @@ const PREV_WEEK_KEY = 'tweetfull_previous_week';
 const HOOK_HISTORY_KEY = 'tweetfull_hook_history';
 const PROFILE_VERSION = 1;
 const PREV_WEEK_VERSION = 1;
-const HOOK_HISTORY_VERSION = 1;
+const HOOK_HISTORY_VERSION = 2;
 const PREV_WEEK_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 const HOOK_HISTORY_TTL_MS = 21 * 24 * 60 * 60 * 1000; // 21 days — 3-week rolling window
 const HOOK_HISTORY_MAX_WEEKS = 3;
@@ -75,8 +75,12 @@ function loadHookHistory() {
 function saveHookHistory(tweets) {
   try {
     const hooks = tweets
-      .filter(t => t.hookText)
-      .map(t => ({ dayNumber: t.dayNumber, tweetOrder: t.tweetOrder, hookText: t.hookText }));
+      .filter(t => t.fullText)
+      .map(t => ({
+        dayNumber: t.dayNumber,
+        tweetOrder: t.tweetOrder,
+        angle: (t.fullText || '').slice(0, 200).replace(/\n+/g, ' ').trim(),
+      }));
     const existing = loadHookHistory();
     const weeks = [{ _savedAt: Date.now(), hooks }, ...existing].slice(0, HOOK_HISTORY_MAX_WEEKS);
     localStorage.setItem(HOOK_HISTORY_KEY, JSON.stringify({ _version: HOOK_HISTORY_VERSION, weeks }));
