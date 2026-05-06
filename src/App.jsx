@@ -4,7 +4,7 @@ import WeeklyPlanner from './components/WeeklyPlanner.jsx';
 import TweetEditor from './components/TweetEditor.jsx';
 import ScheduleReview from './components/ScheduleReview.jsx';
 import { callClaude, parseJSON, enforceCharLimit, hasTweetDefect, cleanTweetArtifacts } from './lib/ai.js';
-import { buildGenerateWeekPrompt, buildRegenerateTweetPrompt, buildCompletionPrompt, buildSelfImprovementPrompt, buildSpikeUpgradePrompt } from './lib/prompts.js';
+import { buildGenerateWeekPrompt, buildRegenerateTweetPrompt, buildCompletionPrompt, buildPlainTextCompletionPrompt, buildSelfImprovementPrompt, buildSpikeUpgradePrompt } from './lib/prompts.js';
 import { scoreAllTweets, scoreTweet } from './lib/scoring.js';
 import { applyCtasToTweets } from './lib/ctas.js';
 import { assignSchedule, getNextMonday } from './lib/scheduler.js';
@@ -275,13 +275,32 @@ export default function App() {
       }));
       const rescored2 = scoreAllTweets(secondImproved, p);
 
-      const stillDefective = rescored2.filter(t => t.defective);
+      // Pass 3: plain-text fallback for tweets that survived all JSON-based completion attempts.
+      // Avoids JSON entirely — Claude outputs raw tweet text, no parsing can fail.
+      const thirdImproved = await Promise.all(rescored2.map(async (tweet) => {
+        if (!tweet.defective) return tweet;
+        try {
+          const raw = await callClaude(buildPlainTextCompletionPrompt(tweet), { maxTokens: 1000 });
+          const fullText = cleanTweetArtifacts(raw.trim());
+          if (fullText && !hasTweetDefect(fullText, tweet.templateName)) {
+            const { score } = scoreTweet({ ...tweet, fullText }, p);
+            console.log(`[pass3 plain-text] Day ${tweet.dayNumber} slot ${tweet.tweetOrder} fixed`);
+            return { ...tweet, fullText, score, defective: false, improveFailed: false };
+          }
+        } catch (err) {
+          console.warn(`[pass3 plain-text] Day ${tweet.dayNumber} slot ${tweet.tweetOrder}:`, err.message);
+        }
+        return tweet;
+      }));
+      const rescored3 = scoreAllTweets(thirdImproved, p);
+
+      const stillDefective = rescored3.filter(t => t.defective);
       if (stillDefective.length > 0) {
         throw new Error(`Generation could not complete cleanly (${stillDefective.length} tweet${stillDefective.length > 1 ? 's' : ''} remained incomplete after multiple attempts). Please try again.`);
       }
 
       const startDate = getNextMonday();
-      const scheduled = assignSchedule(rescored2, startDate, p.timeZone);
+      const scheduled = assignSchedule(rescored3, startDate, p.timeZone);
 
       savePreviousWeek(scheduled);
       saveHookHistory(scheduled);
