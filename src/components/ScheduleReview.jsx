@@ -1,6 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Clock, Calendar, Send, ArrowLeft, AlertCircle, Copy, Check, ExternalLink, Zap, Link2 } from 'lucide-react';
-import { getDayLabel, formatScheduledDate } from '../lib/scheduler.js';
+import { Clock, Calendar, Send, ArrowLeft, AlertCircle, Copy, Check, ExternalLink, Zap, Link2, RefreshCw } from 'lucide-react';
+import { assignSchedule, getDayLabel, formatScheduledDate } from '../lib/scheduler.js';
+
+function getCurrentMonday() {
+  const now = new Date();
+  const day = now.getDay();
+  const daysBack = day === 0 ? 6 : day - 1;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - daysBack);
+  monday.setHours(0, 0, 0, 0);
+  return monday.toISOString().split('T')[0];
+}
 
 function openTweetIntent(text) {
   const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
@@ -30,8 +40,13 @@ export default function ScheduleReview({ tweets, profile, onBack }) {
   const [xError, setXError] = useState(null);
   const [queueStatus, setQueueStatus] = useState(null); // { queued, posted, pending }
 
-  const approved = tweets.filter(t => t.status === 'approved');
-  const unapproved = tweets.filter(t => t.status !== 'approved');
+  // Reschedule state
+  const [localTweets, setLocalTweets] = useState(tweets);
+  const [rescheduleDate, setRescheduleDate] = useState(getCurrentMonday);
+  const [rescheduling, setRescheduling] = useState(false);
+
+  const approved = localTweets.filter(t => t.status === 'approved');
+  const unapproved = localTweets.filter(t => t.status !== 'approved');
 
   const byDay = {};
   approved.forEach(t => {
@@ -105,6 +120,30 @@ export default function ScheduleReview({ tweets, profile, onBack }) {
     setXConnected(false);
     setXScheduled(false);
     setQueueStatus(null);
+  }
+
+  async function handleReschedule() {
+    setRescheduling(true);
+    setXError(null);
+    try {
+      const rescheduled = assignSchedule(approved, rescheduleDate, profile.timeZone || 'America/New_York');
+      const res = await fetch('/api/schedule/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tweets: rescheduled }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Reschedule failed');
+      setLocalTweets(prev => prev.map(t => {
+        const updated = rescheduled.find(r => r.id === t.id);
+        return updated ? { ...t, scheduledAt: updated.scheduledAt, displayTime: updated.displayTime } : t;
+      }));
+      fetchQueueStatus();
+    } catch (err) {
+      setXError(err.message);
+    } finally {
+      setRescheduling(false);
+    }
   }
 
   return (
@@ -203,6 +242,30 @@ export default function ScheduleReview({ tweets, profile, onBack }) {
             <p className="text-violet-300 text-sm">
               {approved.length} tweets queued — they'll post automatically at their scheduled times.
             </p>
+          </div>
+        )}
+
+        {/* Reschedule — shown whenever tweets are queued */}
+        {xConnected && (xScheduled || (queueStatus && queueStatus.pending > 0)) && (
+          <div className="bg-[#13131f] border border-white/[0.06] rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap">
+            <Calendar size={14} className="text-slate-500 flex-shrink-0" />
+            <span className="text-slate-400 text-sm">Week starts</span>
+            <input
+              type="date"
+              value={rescheduleDate}
+              onChange={e => setRescheduleDate(e.target.value)}
+              className="bg-[#0d0d18] border border-white/[0.08] rounded-lg px-3 py-1.5 text-slate-200 text-sm focus:outline-none focus:border-violet-500/50"
+            />
+            <button
+              onClick={handleReschedule}
+              disabled={rescheduling || !rescheduleDate}
+              className="flex items-center gap-1.5 text-sm text-violet-400 hover:text-violet-300 border border-violet-500/30 hover:border-violet-500/50 bg-violet-500/10 hover:bg-violet-500/15 rounded-lg px-3 py-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {rescheduling
+                ? <><div className="w-3 h-3 border-2 border-violet-400/40 border-t-violet-400 rounded-full animate-spin" /> Updating…</>
+                : <><RefreshCw size={13} /> Reschedule</>
+              }
+            </button>
           </div>
         )}
 
