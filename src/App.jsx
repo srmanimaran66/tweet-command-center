@@ -3,7 +3,7 @@ import SetupForm from './components/SetupForm.jsx';
 import WeeklyPlanner from './components/WeeklyPlanner.jsx';
 import TweetEditor from './components/TweetEditor.jsx';
 import ScheduleReview from './components/ScheduleReview.jsx';
-import { callClaude, parseJSON, enforceCharLimit, hasTweetDefect, cleanTweetArtifacts } from './lib/ai.js';
+import { callClaude, parseJSON, enforceCharLimit, enforceListItemLimit, hasTweetDefect, cleanTweetArtifacts } from './lib/ai.js';
 import { buildGenerateWeekPrompt, buildRegenerateTweetPrompt, buildCompletionPrompt, buildPlainTextCompletionPrompt, buildSelfImprovementPrompt, buildSpikeUpgradePrompt } from './lib/prompts.js';
 import { scoreAllTweets, scoreTweet } from './lib/scoring.js';
 import { applyCtasToTweets } from './lib/ctas.js';
@@ -301,16 +301,19 @@ export default function App() {
       }));
       const rescored3 = scoreAllTweets(thirdImproved, p);
 
-      // Final length pass: completion routes skip enforceCharLimit for list formats to
-      // avoid cutting bullets, but non-list templates must still fit Twitter's 280-char limit.
-      // before_after is NOT skipped — enforceCharLimit at 280 cuts cleanly after the first
-      // valid New: block, which fixes duplicate-New: generation errors perfectly.
-      // framework_3_step and simple_process ARE skipped — trimming removes numbered items
-      // and hasTweetDefect would flag the result as defective (missing steps).
-      const SKIP_TRIM = new Set(['checklist', 'framework_3_step', 'simple_process']);
+      // Final length pass: enforce 280-char limit per template strategy.
+      // before_after: enforceCharLimit cuts cleanly after the first New: block.
+      // checklist / framework_3_step: enforceListItemLimit drops trailing items or
+      //   shortens the last item's text — never cuts at \n\n which would discard bullets.
+      // simple_process: skipped — completion pass already enforces 3-item structure.
+      const SKIP_TRIM = new Set(['simple_process']);
+      const LIST_TRIM = new Set(['checklist', 'framework_3_step']);
       const normalized = rescored3.map(tweet => {
         if (!tweet.fullText || tweet.fullText.length <= 280 || SKIP_TRIM.has(tweet.templateName || '')) return tweet;
-        const fullText = enforceCharLimit(tweet.fullText);
+        const tmpl = tweet.templateName || '';
+        const fullText = LIST_TRIM.has(tmpl)
+          ? enforceListItemLimit(tweet.fullText, tmpl)
+          : enforceCharLimit(tweet.fullText);
         const { score } = scoreTweet({ ...tweet, fullText }, p);
         return { ...tweet, fullText, score };
       });

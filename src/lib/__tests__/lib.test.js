@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
-import { hasTweetDefect, enforceCharLimit, parseJSON } from '../ai.js';
+import { hasTweetDefect, enforceCharLimit, enforceListItemLimit, parseJSON } from '../ai.js';
 import { assignSchedule, getNextMonday } from '../scheduler.js';
 import { applyCtasToTweets, resetCtaTracking } from '../ctas.js';
 
@@ -424,6 +424,44 @@ describe('hasTweetDefect — prediction minimum and hot_take dangling tease', ()
   test('"The real X isn\'t [noun phrase]" is NOT flagged — a concrete contrast is a valid ending', () => {
     const valid = 'Burnout isn\'t a wellness issue. It\'s a P&L problem.\n\nDecision quality is your most leveraged asset. The real failure isn\'t exhaustion.';
     expect(hasTweetDefect(valid, 'hot_take')).toBe(false);
+  });
+});
+
+// ─── enforceListItemLimit — list-aware 280-char trimmer ──────────────────────
+// Symptom: checklist (5 bullets, 308 chars) and framework_3_step (3 steps, 295 chars)
+// were in SKIP_TRIM so they bypassed the final length pass entirely.
+// Fix: enforceListItemLimit drops trailing items when enough remain (phase 1),
+//      then shortens the last item at a word boundary if still over (phase 2).
+
+describe('enforceListItemLimit', () => {
+  const CHECKLIST_5 = 'AI didn\'t kill junior roles. It killed roles nobody could explain.\n\nThe jobs gone first had one thing in common:\n\n☑ No one could define success in them\n☑ Tasks were copy-paste with no thinking\n☑ Output was motion, not actual progress\n☑ Anyone could do them with a checklist\n☑ They added steps, not real value';
+  const FRAMEWORK_3 = 'Churned users reactivated in 3 steps — no cold outreach.\n\nStep 1: Supabase flags accounts inactive 14+ days with no core feature use\nStep 2: n8n pulls their last action and Claude drafts a reactivation email tied to that exact drop-off point\nStep 3: Email sends auto — opens tracked, wins logged';
+
+  test('checklist with 5 bullets (308 chars) trims to ≤ 280 chars', () => {
+    const result = enforceListItemLimit(CHECKLIST_5, 'checklist');
+    expect(result.length).toBeLessThanOrEqual(280);
+  });
+
+  test('checklist trim retains ≥ 4 bullets (still valid per hasTweetDefect)', () => {
+    const result = enforceListItemLimit(CHECKLIST_5, 'checklist');
+    const bulletCount = (result.match(/^[☑✅✔✓]/gmu) || []).length;
+    expect(bulletCount).toBeGreaterThanOrEqual(4);
+    expect(hasTweetDefect(result, 'checklist')).toBe(false);
+  });
+
+  test('framework_3_step with 3 steps (295 chars) trims to ≤ 280 chars', () => {
+    const result = enforceListItemLimit(FRAMEWORK_3, 'framework_3_step');
+    expect(result.length).toBeLessThanOrEqual(280);
+  });
+
+  test('framework_3_step trim retains all 3 steps (still valid per hasTweetDefect)', () => {
+    const result = enforceListItemLimit(FRAMEWORK_3, 'framework_3_step');
+    expect(hasTweetDefect(result, 'framework_3_step')).toBe(false);
+  });
+
+  test('text already ≤ 280 chars is returned unchanged', () => {
+    const short = 'Short tweet.\n\n☑ Item one\n☑ Item two\n☑ Item three\n☑ Item four';
+    expect(enforceListItemLimit(short, 'checklist')).toBe(short);
   });
 });
 

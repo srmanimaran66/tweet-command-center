@@ -180,6 +180,54 @@ export function enforceCharLimit(text, limit = 280) {
   return text.slice(0, lastSpace > 0 ? lastSpace : limit).trimEnd();
 }
 
+/**
+ * Trim a structured list tweet to ≤ limit chars without dropping required items.
+ * Phase 1: drop complete trailing items while enough remain (≥ minRequired).
+ * Phase 2: shorten the last item's text at a word boundary if still over.
+ */
+export function enforceListItemLimit(text, templateName, limit = 280) {
+  if (!text || text.length <= limit) return text;
+
+  const isItemLine = (l) => {
+    const t = l.trim();
+    return /^[☑✅✔✓]/u.test(t) || /^Step \d+:/i.test(t) || /^\d+\.\s/.test(t);
+  };
+
+  const MIN_ITEMS = { checklist: 4, framework_3_step: 3, simple_process: 3 };
+  const minRequired = MIN_ITEMS[templateName] ?? 3;
+
+  const lines = text.split('\n');
+  let work = [...lines];
+
+  // Phase 1: drop complete trailing items while enough remain
+  while (work.join('\n').length > limit) {
+    const itemIdxs = work.map((l, i) => isItemLine(l) ? i : -1).filter(i => i !== -1);
+    if (itemIdxs.length <= minRequired) break;
+    const lastItemIdx = itemIdxs[itemIdxs.length - 1];
+    work = work.slice(0, lastItemIdx);
+    while (work.length && !work[work.length - 1].trim()) work.pop();
+  }
+
+  let result = work.join('\n').trimEnd();
+  if (result.length <= limit) return result;
+
+  // Phase 2: shorten the last non-empty line at a word boundary
+  for (let i = work.length - 1; i >= 0; i--) {
+    if (!work[i].trim()) continue;
+    const overage = result.length - limit;
+    const line = work[i];
+    const target = line.length - overage;
+    if (target <= 2) continue;
+    const cut = line.slice(0, target);
+    const lastSpace = cut.lastIndexOf(' ');
+    work[i] = lastSpace > 0 ? line.slice(0, lastSpace) : cut;
+    result = work.join('\n').trimEnd();
+    if (result.length <= limit) break;
+  }
+
+  return result;
+}
+
 export function parseJSON(text) {
   // Strip any markdown fences if Claude wraps it anyway
   let cleaned = text.trim();
