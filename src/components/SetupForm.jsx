@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Sparkles, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp, AlertCircle, CalendarClock } from 'lucide-react';
 
 const TONE_OPTIONS = ['practical', 'bold', 'educational', 'conversational', 'inspirational', 'analytical', 'humorous'];
 
@@ -55,7 +55,7 @@ export const TONE_RISK_OVERRIDES = {
   'analytical+bold':       'data-driven contrarian — use evidence to challenge assumptions, let the numbers do the provoking',
 };
 
-export default function SetupForm({ onGenerate, initialProfile }) {
+export default function SetupForm({ onGenerate, onViewQueue, initialProfile }) {
   const [form, setForm] = useState({
     primaryTopic: '',
     secondaryTopic: '',
@@ -117,6 +117,16 @@ export default function SetupForm({ onGenerate, initialProfile }) {
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">Generate a week of tweets</h1>
           <p className="text-slate-400 text-sm">Fill in a few details — your AI content strategist does the rest.</p>
+          {onViewQueue && (
+            <button
+              type="button"
+              onClick={onViewQueue}
+              className="mt-3 inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              <CalendarClock size={13} />
+              View scheduled queue
+            </button>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="bg-[#13131f] border border-white/[0.06] rounded-2xl p-6 space-y-5">

@@ -3,6 +3,7 @@ import SetupForm from './components/SetupForm.jsx';
 import WeeklyPlanner from './components/WeeklyPlanner.jsx';
 import TweetEditor from './components/TweetEditor.jsx';
 import ScheduleReview from './components/ScheduleReview.jsx';
+import QueueView from './components/QueueView.jsx';
 import { callClaude, parseJSON, enforceCharLimit, enforceListItemLimit, hasTweetDefect, cleanTweetArtifacts } from './lib/ai.js';
 import { buildGenerateWeekPrompt, buildRegenerateTweetPrompt, buildCompletionPrompt, buildPlainTextCompletionPrompt, buildSelfImprovementPrompt, buildSpikeUpgradePrompt } from './lib/prompts.js';
 import { scoreAllTweets, scoreTweet } from './lib/scoring.js';
@@ -150,7 +151,7 @@ function createSkeletons() {
 }
 
 export default function App() {
-  const [view, setView] = useState('setup');          // setup | planner | schedule | error
+  const [view, setView] = useState('setup');          // setup | planner | schedule | queue | error
   const [profile, setProfile] = useState(loadProfile);
   const [tweets, setTweets] = useState([]);
   const [editingTweet, setEditingTweet] = useState(null);
@@ -484,10 +485,15 @@ export default function App() {
     );
   }
 
+  if (view === 'queue') {
+    return <QueueView onBack={() => setView('setup')} />;
+  }
+
   // Default: setup
   return (
     <SetupForm
       onGenerate={generateWeek}
+      onViewQueue={() => setView('queue')}
       initialProfile={profile || {}}
     />
   );
