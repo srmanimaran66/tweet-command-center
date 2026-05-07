@@ -301,7 +301,17 @@ export default function App() {
       }));
       const rescored3 = scoreAllTweets(thirdImproved, p);
 
-      const stillDefective = rescored3.filter(t => t.defective);
+      // Final length pass: completion routes skip enforceCharLimit for list formats to
+      // avoid cutting bullets, but non-list templates must still fit Twitter's 280-char limit.
+      const SKIP_TRIM = new Set(['checklist', 'before_after', 'framework_3_step', 'simple_process']);
+      const normalized = rescored3.map(tweet => {
+        if (!tweet.fullText || tweet.fullText.length <= 280 || SKIP_TRIM.has(tweet.templateName || '')) return tweet;
+        const fullText = enforceCharLimit(tweet.fullText);
+        const { score } = scoreTweet({ ...tweet, fullText }, p);
+        return { ...tweet, fullText, score };
+      });
+
+      const stillDefective = normalized.filter(t => t.defective);
       if (stillDefective.length > 0) {
         const diagnostics = stillDefective.map(t =>
           `D${t.dayNumber}S${t.tweetOrder}[${t.templateName}] pass2="${t._p2Error}" pass3="${t._p3Error}"`
@@ -311,7 +321,7 @@ export default function App() {
       }
 
       const startDate = getNextMonday();
-      const scheduled = assignSchedule(rescored3, startDate, p.timeZone);
+      const scheduled = assignSchedule(normalized, startDate, p.timeZone);
 
       savePreviousWeek(scheduled);
       saveHookHistory(scheduled);
