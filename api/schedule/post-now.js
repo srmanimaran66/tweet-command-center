@@ -21,9 +21,14 @@ export default async function handler(req, res) {
     const msg = data?.detail || data?.errors?.[0]?.message || data?.title || 'X API error';
     console.error(`[post-now] X API ${xStatus}:`, JSON.stringify(data));
     if (xStatus === 403) {
+      const isNotEnrolled = data?.reason === 'client-not-enrolled';
       return res.status(403).json({
-        error: msg,
-        hint: 'Check your X app has "Read and Write" permissions in the developer portal, then disconnect and reconnect.',
+        error: isNotEnrolled
+          ? 'X API Free tier does not allow posting via API. Upgrade to Basic ($100/mo) at developer.twitter.com, or use the web intent fallback.'
+          : msg,
+        hint: isNotEnrolled
+          ? null
+          : 'Check your X app has "Read and Write" permissions in the developer portal, then disconnect and reconnect.',
         xStatus,
         xBody: data,
       });
