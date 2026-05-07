@@ -324,6 +324,8 @@ export default function ScheduleReview({ tweets, profile, onBack }) {
                       copied={copiedId === tweet.id}
                       onCopy={() => handleCopy(tweet)}
                       queueStatus={queueStatus}
+                      xConnected={xConnected}
+                      onPosted={fetchQueueStatus}
                     />
                   ))}
               </div>
@@ -334,10 +336,37 @@ export default function ScheduleReview({ tweets, profile, onBack }) {
   );
 }
 
-function ScheduleRow({ tweet, copied, onCopy, queueStatus }) {
+function ScheduleRow({ tweet, copied, onCopy, queueStatus, xConnected, onPosted }) {
   const color = TYPE_COLORS[tweet.tweetType] || '#7c3aed';
   const label = TYPE_LABELS[tweet.tweetType] || 'Tweet';
   const queued = queueStatus?.tweets?.find(t => t.id === tweet.id);
+
+  const [posting, setPosting] = useState(false);
+  const [postError, setPostError] = useState(null);
+  const [postedId, setPostedId] = useState(queued?.xTweetId || null);
+
+  const isPosted = queued?.posted || !!postedId;
+
+  async function handlePostNow() {
+    setPosting(true);
+    setPostError(null);
+    try {
+      const res = await fetch('/api/schedule/post-now', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: tweet.id, text: tweet.fullText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Post failed');
+      setPostedId(data.xTweetId);
+      onPosted?.();
+    } catch (err) {
+      setPostError(err.message);
+      setTimeout(() => setPostError(null), 4000);
+    } finally {
+      setPosting(false);
+    }
+  }
 
   return (
     <div className="bg-[#13131f] border border-white/[0.06] rounded-xl p-4 flex gap-3">
@@ -349,29 +378,51 @@ function ScheduleRow({ tweet, copied, onCopy, queueStatus }) {
           <span className="text-slate-600 text-xs">·</span>
           <Clock size={10} className="text-slate-600" />
           <span className="text-slate-500 text-xs">{tweet.displayTime}</span>
-          {queued?.posted && (
+          {isPosted && (
             <span className="text-emerald-500 text-xs flex items-center gap-1 ml-1">
-              <Check size={10} /> Posted
+              <Check size={10} />
+              {postedId
+                ? <a href={`https://x.com/i/web/status/${postedId}`} target="_blank" rel="noopener noreferrer" className="hover:underline">Posted</a>
+                : 'Posted'
+              }
             </span>
           )}
-          {queued && !queued.posted && (
+          {queued && !isPosted && (
             <span className="text-violet-400 text-xs ml-1">· Queued</span>
           )}
         </div>
         <p className="text-slate-200 text-sm leading-relaxed whitespace-pre-line line-clamp-3">
           {tweet.fullText}
         </p>
+        {postError && (
+          <p className="text-red-400 text-xs mt-1.5">{postError}</p>
+        )}
       </div>
 
       <div className="flex flex-col gap-1.5 flex-shrink-0 self-start">
-        <button
-          onClick={() => openTweetIntent(tweet.fullText)}
-          className="flex items-center gap-1.5 text-xs font-medium text-sky-400 hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 rounded-lg px-3 py-1.5 transition-all"
-          title="Open in X/Twitter to post now"
-        >
-          <ExternalLink size={12} />
-          Post now
-        </button>
+        {xConnected ? (
+          <button
+            onClick={handlePostNow}
+            disabled={posting || isPosted}
+            className="flex items-center gap-1.5 text-xs font-medium text-sky-400 hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 rounded-lg px-3 py-1.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {posting
+              ? <><div className="w-3 h-3 border-2 border-sky-400/40 border-t-sky-400 rounded-full animate-spin" /> Posting…</>
+              : isPosted
+              ? <><Check size={12} /> Posted</>
+              : <><Send size={12} /> Post now</>
+            }
+          </button>
+        ) : (
+          <button
+            onClick={() => openTweetIntent(tweet.fullText)}
+            className="flex items-center gap-1.5 text-xs font-medium text-sky-400 hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 rounded-lg px-3 py-1.5 transition-all"
+            title="Open in X/Twitter to post now"
+          >
+            <ExternalLink size={12} />
+            Post now
+          </button>
+        )}
         <button
           onClick={onCopy}
           className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-white hover:bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-1.5 transition-all"
