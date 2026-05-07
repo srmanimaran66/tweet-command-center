@@ -8,6 +8,8 @@ export default async function handler(req, res) {
   if (!sessionId) return res.status(401).json({ error: 'Not connected to X' });
 
   const kv = await getKv();
+  const stored = await kv.get(`tokens:${sessionId}`);
+  console.log('[post-now] token scope:', stored?.scope ?? 'not stored');
   const accessToken = await getValidAccessToken(kv, sessionId);
   if (!accessToken) return res.status(401).json({ error: 'X session expired — reconnect' });
 

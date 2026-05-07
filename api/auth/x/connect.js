@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     response_type: 'code',
     client_id: process.env.X_CLIENT_ID,
     redirect_uri: process.env.X_CALLBACK_URL,
-    scope: 'tweet.write users.read offline.access',
+    scope: 'tweet.read tweet.write users.read offline.access',
     state,
     code_challenge: challenge,
     code_challenge_method: 'S256',

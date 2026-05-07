@@ -26,11 +26,14 @@ export default async function handler(req, res) {
     return res.redirect(302, `/?xError=${msg}`);
   }
 
+  console.log('[x-callback] granted scopes:', tokens.scope);
+
   const sessionId = crypto.randomBytes(32).toString('hex');
   await kv.setex(`tokens:${sessionId}`, TOKEN_TTL, {
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token,
     expires_at: Date.now() + (tokens.expires_in || 7200) * 1000,
+    scope: tokens.scope,
   });
 
   res.setHeader('Set-Cookie', sessionCookieHeader(sessionId, TOKEN_TTL));
