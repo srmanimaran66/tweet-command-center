@@ -303,7 +303,11 @@ export default function App() {
 
       // Final length pass: completion routes skip enforceCharLimit for list formats to
       // avoid cutting bullets, but non-list templates must still fit Twitter's 280-char limit.
-      const SKIP_TRIM = new Set(['checklist', 'before_after', 'framework_3_step', 'simple_process']);
+      // before_after is NOT skipped — enforceCharLimit at 280 cuts cleanly after the first
+      // valid New: block, which fixes duplicate-New: generation errors perfectly.
+      // framework_3_step and simple_process ARE skipped — trimming removes numbered items
+      // and hasTweetDefect would flag the result as defective (missing steps).
+      const SKIP_TRIM = new Set(['checklist', 'framework_3_step', 'simple_process']);
       const normalized = rescored3.map(tweet => {
         if (!tweet.fullText || tweet.fullText.length <= 280 || SKIP_TRIM.has(tweet.templateName || '')) return tweet;
         const fullText = enforceCharLimit(tweet.fullText);
