@@ -113,7 +113,10 @@ export default function TweetCard({ tweet, onEdit, onRegenerate, onApprove, onUp
         return;
       }
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Post failed');
+      if (!res.ok) {
+        const msg = data.hint ? `${data.error} — ${data.hint}` : (data.error || 'Post failed');
+        throw new Error(msg);
+      }
       setPosted(true);
       setTimeout(() => { setPosted(false); setShowPostMenu(false); }, 2000);
     } catch (err) {

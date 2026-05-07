@@ -357,7 +357,7 @@ function ScheduleRow({ tweet, copied, onCopy, queueStatus, xConnected, onPosted 
         body: JSON.stringify({ id: tweet.id, text: tweet.fullText }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Post failed');
+      if (!res.ok) throw new Error(data.hint ? `${data.error} — ${data.hint}` : (data.error || 'Post failed'));
       setPostedId(data.xTweetId);
       onPosted?.();
     } catch (err) {

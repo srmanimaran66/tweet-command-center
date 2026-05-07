@@ -14,8 +14,20 @@ export default async function handler(req, res) {
   const { id, text } = req.body || {};
   if (!text) return res.status(400).json({ error: 'text required' });
 
-  const { ok, data } = await postTweet(accessToken, text);
-  if (!ok) return res.status(502).json({ error: data?.detail || data?.title || 'X API error', data });
+  const { ok, data, status: xStatus } = await postTweet(accessToken, text);
+  if (!ok) {
+    const msg = data?.detail || data?.errors?.[0]?.message || data?.title || 'X API error';
+    console.error(`[post-now] X API ${xStatus}:`, JSON.stringify(data));
+    if (xStatus === 403) {
+      return res.status(403).json({
+        error: msg,
+        hint: 'Check your X app has "Read and Write" permissions in the developer portal, then disconnect and reconnect.',
+        xStatus,
+        xBody: data,
+      });
+    }
+    return res.status(502).json({ error: msg, xStatus, xBody: data });
+  }
 
   const xTweetId = data.data?.id;
 
