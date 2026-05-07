@@ -1,10 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Edit3, RefreshCw, CheckCircle, Clock, Star, Pencil, ExternalLink, MoreHorizontal } from 'lucide-react';
-
-function openTweetIntent(text) {
-  const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
-  window.open(url, '_blank', 'noopener,noreferrer');
-}
+import { Edit3, RefreshCw, CheckCircle, Clock, Star, Pencil, ExternalLink, MoreHorizontal, Send, Check } from 'lucide-react';
 import { getScoreLabel } from '../lib/scoring.js';
 
 const TYPE_CONFIG = {
@@ -71,6 +66,9 @@ export default function TweetCard({ tweet, onEdit, onRegenerate, onApprove, onUp
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showPostMenu, setShowPostMenu] = useState(false);
   const [isRedoing, setIsRedoing] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const [posted, setPosted] = useState(false);
+  const [postError, setPostError] = useState(null);
   const postMenuRef = useRef(null);
   const hoverTimeout = useRef(null);
 
@@ -96,6 +94,34 @@ export default function TweetCard({ tweet, onEdit, onRegenerate, onApprove, onUp
   function handleTimeSelect(time) {
     setShowTimePicker(false);
     if (onUpdateTime) onUpdateTime(tweet.id, time);
+  }
+
+  async function handlePostNow() {
+    setPosting(true);
+    setPostError(null);
+    try {
+      const res = await fetch('/api/schedule/post-now', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: tweet.id, text: tweet.fullText }),
+      });
+      if (res.status === 401) {
+        // Not connected — fall back to web intent
+        const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweet.fullText)}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+        setShowPostMenu(false);
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Post failed');
+      setPosted(true);
+      setTimeout(() => { setPosted(false); setShowPostMenu(false); }, 2000);
+    } catch (err) {
+      setPostError(err.message);
+      setTimeout(() => setPostError(null), 4000);
+    } finally {
+      setPosting(false);
+    }
   }
 
   const isDefective = tweet.defective;
@@ -276,14 +302,22 @@ export default function TweetCard({ tweet, onEdit, onRegenerate, onApprove, onUp
               <MoreHorizontal size={13} />
             </button>
             {showPostMenu && (
-              <div className="absolute right-0 bottom-8 z-40 bg-[#1c1c2e] border border-white/[0.12] rounded-xl shadow-2xl py-1 w-32">
+              <div className="absolute right-0 bottom-8 z-40 bg-[#1c1c2e] border border-white/[0.12] rounded-xl shadow-2xl py-1 w-36">
                 <button
-                  onClick={() => { openTweetIntent(tweet.fullText); setShowPostMenu(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-400 hover:text-sky-400 hover:bg-white/[0.04] transition-colors"
+                  onClick={handlePostNow}
+                  disabled={posting || posted}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-400 hover:text-sky-400 hover:bg-white/[0.04] transition-colors disabled:opacity-50"
                 >
-                  <ExternalLink size={12} />
-                  Post Now
+                  {posting
+                    ? <><div className="w-3 h-3 border-2 border-sky-400/40 border-t-sky-400 rounded-full animate-spin" /> Posting…</>
+                    : posted
+                    ? <><Check size={12} className="text-emerald-400" /> Posted!</>
+                    : <><Send size={12} /> Post now</>
+                  }
                 </button>
+                {postError && (
+                  <p className="px-3 pb-2 text-xs text-red-400">{postError}</p>
+                )}
               </div>
             )}
           </div>
